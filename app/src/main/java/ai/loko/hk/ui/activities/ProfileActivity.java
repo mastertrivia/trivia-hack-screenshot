@@ -61,7 +61,6 @@ import java.util.List;
 
 import ai.loko.hk.ui.adapters.ProfileAdapter;
 import ai.loko.hk.ui.constants.Constant;
-import ai.loko.hk.ui.data.Data;
 import ai.loko.hk.ui.db.AppDatabase;
 import ai.loko.hk.ui.db.ProfileEntity;
 import ai.loko.hk.ui.listeners.ListItemSwipeListener;
@@ -69,8 +68,7 @@ import ai.loko.hk.ui.listeners.ListItemTouchListener;
 import ai.loko.hk.ui.model.Profile;
 import ai.loko.hk.ui.ocr.MediaProjectionHelper;
 import ai.loko.hk.ui.ocr.Points;
-import ai.loko.hk.ui.services.OCRFloating;
-import ai.loko.hk.ui.services.option4.OCRFloating4;
+import ai.loko.hk.ui.services.Floating;
 import cn.pedant.SweetAlert.SweetAlertDialog;
 import ui.R;
 
@@ -126,10 +124,7 @@ public class ProfileActivity extends AppCompatActivity implements ListItemSwipeL
 
         takeNecessaryPermission();
 
-        if (Data.IS_THIS_REQUEST_FOR_OPTION_FOUR)
-            mScreenshotIntent = new Intent(this, OCRFloating4.class);
-        else
-            mScreenshotIntent = new Intent(this, OCRFloating.class);
+        mScreenshotIntent = new Intent(this, Floating.class);
 
         mRecyclerView = findViewById(R.id.recycler_view);
         mProfileAdapter = new ProfileAdapter(getApplicationContext(), profiles);
@@ -145,7 +140,7 @@ public class ProfileActivity extends AppCompatActivity implements ListItemSwipeL
                 Points.X2 = profile.getX2();
                 Points.Y1 = profile.getY1();
                 Points.Y2 = profile.getY2();
-                startOCR();
+                startScreenshot();
             }
 
             @Override
@@ -164,9 +159,9 @@ public class ProfileActivity extends AppCompatActivity implements ListItemSwipeL
     }
 
 
-    private void startOCR() {
+    private void startScreenshot() {
         if (canOverdraw()) {
-            if (!isServiceRunning(OCRFloating.class)) {
+            if (!isServiceRunning(Floating.class)) {
                 mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
                 startActivityForResult(mMediaProjectionManager.createScreenCaptureIntent(), Constant.CODE_FOR_SCREEN_CAPTURE);
             }

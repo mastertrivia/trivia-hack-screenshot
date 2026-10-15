@@ -59,24 +59,8 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="ai.loko.hk.ui.activities.ForegroundActivity" />
-
-        <activity android:name="ai.loko.hk.ui.activities.TestActivity">
-
-        </activity>
-
         <service
             android:name="ai.loko.hk.ui.services.Floating"
-
-            android:enabled="true"
-            android:exported="false" />
-        <service
-            android:name="ai.loko.hk.ui.services.OCRFloating"
-
-            android:enabled="true"
-            android:exported="false" />
-        <service
-            android:name="ai.loko.hk.ui.services.option4.OCRFloating4"
 
             android:enabled="true"
             android:exported="false" />

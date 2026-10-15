@@ -31,7 +31,9 @@
 buildscript {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
+        // jcenter() is shut down; this mirror keeps the old plugin dependencies resolvable
+        maven { url "https://maven.aliyun.com/repository/public" }
 
         maven {
             url "https://jitpack.io"
@@ -49,7 +51,9 @@ buildscript {
 allprojects {
     repositories {
         google()
-        jcenter()
+        // jcenter() was shut down; this mirror keeps the old dependencies
+        // (boommenu, android-image-cropper, sweetalert) resolvable
+        maven { url "https://maven.aliyun.com/repository/public" }
         maven {
             url "https://jitpack.io"
         }

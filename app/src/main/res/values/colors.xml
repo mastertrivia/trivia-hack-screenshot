@@ -30,6 +30,13 @@
 <resources>
 
     <color name="btnred">#FFCC0000</color>
+    <color name="black">#FF000000</color>
+
+    <!-- Home screen cards -->
+    <color name="card_start_green">#6FA82B</color>
+    <color name="card_notebook_blue">#2E7FA6</color>
+    <color name="card_settings_purple">#6C3FC5</color>
+    <color name="card_profiles_slate">#46596E</color>
     <color name="bg_row_background">#C0BEBE</color>
 
 

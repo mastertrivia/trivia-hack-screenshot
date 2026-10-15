@@ -16,36 +16,29 @@
  *     You should have received a copy of the GNU General Public License
  *     along with Trivia Hack.  If not, see <http://www.gnu.org/licenses/>.
  *
- *
  *     Unless required by applicable law or agreed to in writing, software
  *     distributed under the License is distributed on an "AS IS" BASIS,
  *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *     See the License for the specific language governing permissions and
  *     limitations under the License.
  *
- *
  */
 
 package ai.loko.hk.ui;
 
 import android.Manifest;
-import android.app.ActivityManager;
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
+import android.graphics.Point;
+import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -70,10 +63,9 @@ import java.io.IOException;
 import ai.loko.hk.ui.activities.ProfileActivity;
 import ai.loko.hk.ui.activities.SettingsActivity;
 import ai.loko.hk.ui.constants.Constant;
-import ai.loko.hk.ui.data.Data;
+import ai.loko.hk.ui.ocr.MediaProjectionHelper;
+import ai.loko.hk.ui.ocr.Points;
 import ai.loko.hk.ui.services.Floating;
-import ai.loko.hk.ui.services.OCRFloating;
-import ai.loko.hk.ui.services.option4.OCRFloating4;
 import ai.loko.hk.ui.utils.Logger;
 import cn.pedant.SweetAlert.SweetAlertDialog;
 import ui.BuildConfig;
@@ -83,11 +75,10 @@ import ui.R;
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_CODE_STORAGE_PERMISSION = 153;
-    private final Handler mHandler = new Handler();
-    SharedPreferences sharedPref;
     private Intent mFloatingIntent;
-    private Button mOverlayPermmissionBtn, mAccessibilityPermissionBtn, startStopBtnLegacy, ocrBtn;
-    private Button mOCRBtn4;
+    private TextView mOverlayPermmissionBtn, mAccessibilityPermissionBtn;
+    private View mStartScreenshotBtn, mMyNotebooksBtn, mSettingsBtn, mSelectProfilesBtn;
+    private MediaProjectionManager mMediaProjectionManager;
 
 
     @Override
@@ -102,59 +93,43 @@ public class MainActivity extends AppCompatActivity {
 
         mOverlayPermmissionBtn = findViewById(R.id.olpermission5);
         mAccessibilityPermissionBtn = findViewById(R.id.accpermission5);
-        startStopBtnLegacy = findViewById(R.id.start5);
-        ocrBtn = findViewById(R.id.ocr_btn5);
+        mStartScreenshotBtn = findViewById(R.id.start_screenshot);
+        mMyNotebooksBtn = findViewById(R.id.my_notebooks);
+        mSettingsBtn = findViewById(R.id.settings_card);
+        mSelectProfilesBtn = findViewById(R.id.select_profiles);
 
-        mOCRBtn4 = findViewById(R.id.ocr_btn5_4);
-
-        sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
-
-        startStopBtnLegacy.setOnClickListener(new View.OnClickListener() {
+        // START SCREENSHOT: starts the screenshot overlay with a full screen capture
+        // profile, no profile has to be selected first.
+        mStartScreenshotBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (isNetworkAvailable())
-                    startFloatingWindow();
-                else
-                    showAlertNetworkNotAvailable();
+                startScreenshot();
             }
         });
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            ocrBtn.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    if (isServiceRunning(OCRFloating.class)) {
-                        stopService(new Intent(MainActivity.this, OCRFloating.class));
-                    } else if (isNetworkAvailable()) {
-                        Data.IS_THIS_REQUEST_FOR_OPTION_FOUR = false;
-                        startActivity(new Intent(MainActivity.this, ProfileActivity.class));
-                    } else {
-                        showAlertNetworkNotAvailable();
-                    }
-                }
-            });
+        // Not implemented yet.
+        mMyNotebooksBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(MainActivity.this, R.string.coming_soon, Toast.LENGTH_SHORT).show();
+            }
+        });
 
+        // Not implemented yet.
+        mSettingsBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(MainActivity.this, R.string.coming_soon, Toast.LENGTH_SHORT).show();
+            }
+        });
 
-            mOCRBtn4.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (isServiceRunning(OCRFloating4.class)) {
-                        Data.IS_THIS_REQUEST_FOR_OPTION_FOUR = false;
-                        stopService(new Intent(MainActivity.this, OCRFloating4.class));
-                    } else if (isNetworkAvailable()) {
-                        Data.IS_THIS_REQUEST_FOR_OPTION_FOUR = true;
-                        startActivity(new Intent(MainActivity.this, ProfileActivity.class));
-                    } else {
-                        showAlertNetworkNotAvailable();
-
-                    }
-                }
-            });
-
-        } else {
-            ocrBtn.setVisibility(View.GONE);
-            mOCRBtn4.setVisibility(View.GONE);
-        }
+        // Opens the existing profile selection screen.
+        mSelectProfilesBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this, ProfileActivity.class));
+            }
+        });
 
         givePermission();
 
@@ -196,34 +171,32 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    public void startFloatingWindow() {
-
-        if (isServiceRunning(Floating.class)) {
-            startStopBtnLegacy.setText(R.string.start);
-            startStopBtnLegacy.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
-            stopService(mFloatingIntent);
-        } else {
-            if (canOverdraw()) {
-                if (isAccessibilityEnabled()) {
-                    startStopBtnLegacy.setText(R.string.stop);
-                    startStopBtnLegacy.setBackgroundColor(getResources().getColor(R.color.btnred));
-
-                    startService(mFloatingIntent);
-                    mHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            finish();
-                        }
-                    }, 500);
-
-                } else {
-                    giveAccessibilityPermission();
-                }
-            } else {
-                giveOverlayPermission();
-            }
-
+    /**
+     * Starts the screenshot capture workflow with a full screen profile: the complete
+     * screen is captured and the user does not have to select a profile first.
+     */
+    private void startScreenshot() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            Toast.makeText(this, "Screenshots need Android 5.0 or later", Toast.LENGTH_LONG).show();
+            return;
         }
+        if (!canOverdraw()) {
+            giveOverlayPermission();
+            return;
+        }
+
+        // Internal full screen profile: coordinates covering the complete screen.
+        Display display = getWindowManager().getDefaultDisplay();
+        Point size = new Point();
+        display.getSize(size);
+        Points.X1 = 0;
+        Points.Y1 = 0;
+        Points.X2 = size.x;
+        Points.Y2 = size.y;
+
+        mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+        startActivityForResult(mMediaProjectionManager.createScreenCaptureIntent(),
+                Constant.CODE_FOR_SCREEN_CAPTURE);
     }
 
     private void setupActionBar() {
@@ -246,7 +219,7 @@ public class MainActivity extends AppCompatActivity {
         rightBmb.setPiecePlaceEnum(PiecePlaceEnum.HAM_4);
         rightBmb.setButtonPlaceEnum(ButtonPlaceEnum.HAM_4);
 
-        rightBmb.addBuilder(new HamButton.Builder().normalImageRes(R.drawable.ic_settings_black_24dp).subNormalText("Common Settings related to App,Search Engine").normalText("Settings").listener(new OnBMClickListener() {
+        rightBmb.addBuilder(new HamButton.Builder().normalImageRes(R.drawable.ic_settings_black_24dp).subNormalText("Floating button size, screenshot saving and other app options").normalText("Settings").listener(new OnBMClickListener() {
             @Override
             public void onBoomButtonClick(int index) {
                 startActivity(new Intent(MainActivity.this, SettingsActivity.class));
@@ -271,16 +244,6 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/SubhamTyagi/loco-answers/releases/")));
             }
         }));
-    }
-
-    private boolean isServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public boolean isAccessibilityEnabled() {
@@ -317,12 +280,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void giveOverlayPermission() {
-        //&& !SearchSettings.canDrawOverlays(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
             startActivityForResult(intent, Constant.CODE_DRAW_OVER_OTHER_APP_PERMISSION);
         } else {
-            mOverlayPermmissionBtn.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
+            mOverlayPermmissionBtn.setBackgroundResource(R.drawable.bg_pill_green);
             Toast.makeText(this, "You do not need it", Toast.LENGTH_SHORT).show();
         }
     }
@@ -333,7 +295,17 @@ public class MainActivity extends AppCompatActivity {
             case Constant.CODE_DRAW_OVER_OTHER_APP_PERMISSION:
                 //Check if the permission is granted or not.
                 if (resultCode == RESULT_OK) {
-                    mOverlayPermmissionBtn.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
+                    mOverlayPermmissionBtn.setBackgroundResource(R.drawable.bg_pill_green);
+                }
+                break;
+            case Constant.CODE_FOR_SCREEN_CAPTURE:
+                if (resultCode == RESULT_OK && data != null) {
+                    MediaProjectionHelper.setMediaProjectionManager(mMediaProjectionManager);
+                    MediaProjectionHelper.setScreenshotPermission(data);
+                    // Restart so the overlay always uses the current (full screen) profile.
+                    stopService(mFloatingIntent);
+                    startService(mFloatingIntent);
+                    finish();
                 }
                 break;
             default:
@@ -344,64 +316,24 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onResume() {
-
-        if (sharedPref.getBoolean(getString(R.string.custom_search_engine), false))
-            Data.BASE_SEARCH_URL = sharedPref.getString(getString(R.string.custom_search_engine_url), "https://www.google.com/search?q=");
-        else
-            Data.BASE_SEARCH_URL = sharedPref.getString(getString(R.string.search_engine_key), "https://www.google.com/search?q=");
-
-        Data.GRAYSCALE_IAMGE_FOR_OCR = sharedPref.getBoolean(getString(R.string.grayscale_image_ocr), false);
-        Data.ENLARGE_IMAGE_FOR_OCR = sharedPref.getBoolean(getString(R.string.enlarge_image_key), false);
-
-        Data.IMAGE_LOGS_STORAGE = sharedPref.getBoolean(getString(R.string.save_image_and_file_to_storage_key), true);
-        Data.IS_TESSERACT_OCR_USE = sharedPref.getBoolean(getString(R.string.tesseract_key), false);
-        Data.FAST_MODE_FOR_OCR = sharedPref.getBoolean(getString(R.string.fast_mode_key), false);
-
-        if (Data.IS_TESSERACT_OCR_USE) {
-            Data.TESSERACT_LANGUAGE = sharedPref.getString(getString(R.string.language_for_tesseract), "eng");
-            Data.TESSERACT_DATA = sharedPref.getString(getString(R.string.tess_training_data_source), "fast");
-        }
+        super.onResume();
 
         setButtonsColorsAndText();
-        super.onResume();
     }
 
     private void setButtonsColorsAndText() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-            mOverlayPermmissionBtn.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
+            mOverlayPermmissionBtn.setBackgroundResource(R.drawable.bg_pill_green);
         } else {
-            mOverlayPermmissionBtn.setBackgroundColor(getResources().getColor(R.color.btnred));
+            mOverlayPermmissionBtn.setBackgroundResource(R.drawable.bg_pill_red);
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            mOverlayPermmissionBtn.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
+            mOverlayPermmissionBtn.setBackgroundResource(R.drawable.bg_pill_green);
         }
         if (isAccessibilityEnabled()) {
-            mAccessibilityPermissionBtn.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
+            mAccessibilityPermissionBtn.setBackgroundResource(R.drawable.bg_pill_green);
         } else {
-            mAccessibilityPermissionBtn.setBackgroundColor(getResources().getColor(R.color.btnred));
-        }
-
-        if (isServiceRunning(Floating.class)) {
-            startStopBtnLegacy.setText(R.string.stop);
-            startStopBtnLegacy.setBackgroundColor(getResources().getColor(R.color.btnred));
-        } else {
-            startStopBtnLegacy.setText(R.string.start);
-            startStopBtnLegacy.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
-        }
-        if (isServiceRunning(OCRFloating.class)) {
-            ocrBtn.setText(R.string.ocr_btn_txt_stop);
-            ocrBtn.setBackgroundColor(getResources().getColor(R.color.btnred));
-        } else {
-            ocrBtn.setText(R.string.ocr_btn_txt);
-            ocrBtn.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
-        }
-
-        if (isServiceRunning(OCRFloating4.class)) {
-            mOCRBtn4.setText(R.string.ocr_btn_txt_stop);
-            mOCRBtn4.setBackgroundColor(getResources().getColor(R.color.btnred));
-        } else {
-            mOCRBtn4.setText(R.string.ocr_btn_txt_4);
-            mOCRBtn4.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
+            mAccessibilityPermissionBtn.setBackgroundResource(R.drawable.bg_pill_red);
         }
     }
 
@@ -413,31 +345,11 @@ public class MainActivity extends AppCompatActivity {
                 .setConfirmClickListener(new SweetAlertDialog.OnSweetClickListener() {
                     @Override
                     public void onClick(SweetAlertDialog sweetAlertDialog) {
-                        //startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/SubhamTyagi/loco-answers/releases/")));
                         sweetAlertDialog.dismissWithAnimation();
                     }
                 }).show();
 
 
-    }
-
-    private boolean isNetworkAvailable() {
-        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
-    }
-
-    private void showAlertNetworkNotAvailable() {
-        new SweetAlertDialog(this, SweetAlertDialog.WARNING_TYPE)
-                .setTitleText("Network not Available")
-                .setContentText("Your Device is not connected to internet\n First Connect to internet")
-                .setConfirmText("OK")
-                .setConfirmClickListener(new SweetAlertDialog.OnSweetClickListener() {
-                    @Override
-                    public void onClick(SweetAlertDialog sweetAlertDialog) {
-                        sweetAlertDialog.dismissWithAnimation();
-                    }
-                }).show();
     }
 
     @Override
@@ -447,9 +359,6 @@ public class MainActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 new File(Constant.PATH).mkdirs();
                 new File(Constant.PATH_TO_ERRORS).mkdirs();
-                new File(Constant.PATH_OF_TESSERACT_DATA_STANDARD).mkdirs();
-                new File(Constant.PATH_OF_TESSERACT_DATA_FAST).mkdirs();
-                new File(Constant.PATH_OF_TESSERACT_DATA_BEST).mkdirs();
 
                 try {
                     new File(Constant.PATH, ".nomedia").createNewFile();
