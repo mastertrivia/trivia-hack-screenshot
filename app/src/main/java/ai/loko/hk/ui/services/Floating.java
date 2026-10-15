@@ -149,7 +149,7 @@ public class Floating extends Service {
         PreferenceManager.getDefaultSharedPreferences(this)
                 .registerOnSharedPreferenceChangeListener(sizeListener);
 
-        Display display = getWindowManager().getDefaultDisplay();
+        Display display = mWindowManager.getDefaultDisplay();
         Point size = new Point();
         display.getSize(size);
         width = size.x;
