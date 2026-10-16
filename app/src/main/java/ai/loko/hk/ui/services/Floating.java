@@ -576,7 +576,7 @@ public class Floating extends Service {
                 .setContentIntent(pi)
                 .setSmallIcon(R.mipmap.ic_launcher_round)
                 .setOngoing(true).setAutoCancel(true)
-                .addAction(android.R.drawable.ic_menu_more, "Open Trivia Hack", pendingIntent);
+                .addAction(android.R.drawable.ic_menu_more, "Open Trivia Capture", pendingIntent);
 
         notificationManager.notify(1234, mBuilder.build());
     }

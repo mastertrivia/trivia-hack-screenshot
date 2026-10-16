@@ -25,9 +25,9 @@
   -->
 
 <resources>
-    <string name="app_name">Trivia Hack</string>
+    <string name="app_name">Trivia Capture</string>
     <string name="desc">Take screenshots with your saved capture profile</string>
-    <string name="accessibility_desc">Trivia Hack keeps this accessibility service declared so that the accessibility permission indicator on the home screen can work. Trivia Hack does not read the screen content of other apps anymore.\n</string>
+    <string name="accessibility_desc">Trivia Capture keeps this accessibility service declared so that the accessibility permission indicator on the home screen can work. Trivia Capture does not read the screen content of other apps.\n</string>
 
     <string name="title_activity_settings">Settings</string>
     <string name="title_activity_profile">Select Profile</string>

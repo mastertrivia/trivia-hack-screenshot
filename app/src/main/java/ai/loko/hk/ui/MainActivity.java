@@ -370,7 +370,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void about() {
         new SweetAlertDialog(this, SweetAlertDialog.NORMAL_TYPE)
-                .setTitleText("Trivia Hack VERSION " + BuildConfig.VERSION_NAME)
+                .setTitleText("Trivia Capture VERSION " + BuildConfig.VERSION_NAME)
                 .setContentText("This app is free and open source app hosted on GitHub")
                 .setConfirmText("Ok")
                 .setConfirmClickListener(new SweetAlertDialog.OnSweetClickListener() {

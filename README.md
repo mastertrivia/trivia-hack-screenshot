@@ -1,79 +1,111 @@
+<div align="center">
 
-[![licence](https://img.shields.io/badge/Licence-GPLv3-red.svg)](https://github.com/SubhamTyagi/loco-answers/blob/master/LICENSE) ![version](https://img.shields.io/badge/Version-2.6.1-green.svg)[ ![HitCount](http://hits.dwyl.io/SubhamTyagi/loco-answers.svg)](http://hits.dwyl.io/SubhamTyagi/loco-answers)  ![GitHub All Releases](https://img.shields.io/github/downloads/SubhamTyagi/loco-answers/total.svg?style=social)
+# Trivia Capture
 
-# Trivia hack  
+**A lightweight, open-source floating screenshot tool for Android.**
 
-* A free, 100 % open source, ads free trivia helper app that respect user sentiments.
-* Previously Known as LoKo HacK
-* It is time to say goodbye to this repo. No further updates to this repo from my side.
+Tap a small overlay button from inside any app and the screen (or just the region you saved) is captured, saved as a JPEG and registered with the Gallery — ready to view, edit, crop and share.
 
-### * Version 2.6.1 is the latest version of this app.
+![License](https://img.shields.io/badge/License-GPLv3-red.svg)
+![Android](https://img.shields.io/badge/Android-5.0%2B-3ddc84.svg)
+![Status](https://img.shields.io/badge/Status-Active-blue.svg)
+
+</div>
+
+---
+
+## What it is
+
+Trivia Capture started as a fork of *Trivia Hack* (formerly *LoKo HacK*), but the OCR and trivia-answer features are gone. What remains is one focused tool: **a floating button that takes screenshots without leaving the app you are in.**
+
+No accounts, no ads, no tracking.
 
 ## Features
-* Free ,open source, No ads.
-* Highest Accuracy.
-* Highest Speed.
-* Bug reporter.
-* Trivia Games Supported by OCR and Accessibility 
-## Download
-* Before downloading please give this app a :star: by pressing ![Star](/.github/assets/star.PNG) it means a lot to me it boost me to build more features and help you guys.
-* [Download latest Apk File](https://github.com/SubhamTyagi/loco-answers/releases)  ![GitHub All Releases](https://img.shields.io/github/downloads/SubhamTyagi/loco-answers/total.svg?style=social)
 
-## See Demo on YouTube
-* ### [Here](https://youtu.be/H0LvFNW_svA)
-## Supported Apps
-- ### All Apps supported
-##### Following apps are also supported by Accessibility.
-1. Loco `version 2.1.9 or older`
-2. Brainbazzi `2.0.4 or older`
-3. Qureka `latest 1.0.30 or older`
-4. SWOO `5.7.0 or older`
-5. HQ `1.6.2 or older`
-6. The Question `2.0.6 or older`
-8. We Show
-9. Mob Show
-10. Swag IQ
+| | |
+|---|---|
+| **Floating capture button** | A small draggable bubble that sits on top of other apps. Tap to capture, drag to move it wherever it is out of the way. |
+| **Capture profiles** | Save a reusable capture region. Draw a box over a screenshot and the floating button will capture only that region — or leave it empty for full-screen capture. |
+| **Full-screen by default** | Out of the box the button captures the entire screen. |
+| **Gallery-ready output** | Screenshots are saved as valid JPEGs in `Pictures/TriviaHacK` and registered with Android's MediaStore, so they appear in the Gallery with normal **Edit**, **Crop** and **Share** actions. |
+| **Adjustable button size** | Resize the floating button from the Settings screen. |
+| **Save toggle** | Turn screenshot saving on or off; the button still gives visual feedback either way. |
+| **Clear save feedback** | The button turns green with a checkmark only after the screenshot is actually written and published. |
+| **Crash reporting** | Local crash reports to help make the app more stable. |
 
-## Contribution
-* [Shubham Tyagi](https://subhamtyagi.github.io/) 
+## How it works
 
-## Trivia Hack Logo
-* Trivia hack logo is designed by [Deb Pedrano](https://github.com/debpedrano) |[blog](https://steemit.com/@debpedrano)
+1. Grant the **overlay** permission so the floating button can appear over other apps.
+2. Press **START SCREENSHOT** and accept Android's screen-capture consent dialog.
+3. A small button appears on screen. Tap it to capture, drag it to reposition.
+4. The screenshot is saved to `Pictures/TriviaHacK` and shows up in your Gallery.
 
-## Screenshots
-| HOME | PROFILE |
-|:-:|:-:|
-| ![home](/.github/assets/home.png?raw=true "home") | ![profile](/.github/assets/profiles.png?raw=true "profile")|
+To capture only a region, open **Select Profiles** first, draw the area you want, name it, and every capture will use it. Leave the profile empty for full-screen shots.
 
-| Settings |Search|
-|:-:|:-:|
-|![Settings](/.github/assets/settings.png?raw=true "Settings") | ![Search](/.github/assets/search.png?raw=true "Search")|
-|Language|
- | ![Language](/.github/assets/language.png?raw=true "Language")|
+## Permissions
 
-## External Credits
+| Permission | Why it is needed |
+|---|---|
+| **Overlay** (`SYSTEM_ALERT_WINDOW`) | Draws the floating capture button over other apps. |
+| **Storage** (read/write) | Saves screenshots to the shared Pictures folder. |
+| **Screen capture** (`MediaProjection`) | Android's standard consent dialog for capturing the screen; granted once per session. |
+| **Internet** | Used only for crash reporting and the update check. |
+| **Accessibility** | Declared so the accessibility status indicator on the home screen works. The app **does not** read the content of other apps. |
 
- - [Weiping Huang](https://nightonke.outlook.io) for [BoomMenu](https://github.com/Nightonke/BoomMenu).
- - [Danylyk Dmytro](https://dmytrodanylyk.com/) for  [Process Button](https://github.com/dmytrodanylyk/android-process-button).
- - [Anton]( https://vk.com/f0ris) for [Sweet Alert dialog](https://github.com/F0RIS/sweet-alert-dialog).
- - [Bal Sikandar](balsikandar.github.io) for [CrashReporter](https://github.com/MindorksOpenSource/CrashReporter).
- - [Robert Theis](http://www.rmtheis.com/) for [Tesseract Tools for Android](https://github.com/rmtheis/tess-two).
- - [Robert Pösel](https://github.com/Robyer) for[Tesseract 4 Tool for Android](https://github.com/adaptech-cz/Tesseract4Android)
- - [Kamran](http://kamranzafar.github.com/) for [Jtar](https://github.com/kamranzafar/jtar).
- - [Jonathan Hedley](http://jonathanhedley.com) for [Jsoup](https://jsoup.org/).
- - [Arthur](http://TheArtOfDev.com/) for [Android Image Cropper](https://github.com/ArthurHub/Android-Image-Cropper).
- - [Javier Santos](https://github.com/javiersantos) for [App Updator](https://github.com/javiersantos/AppUpdater/).
+## Install
 
+This fork publishes build artifacts from its CI rather than the upstream release page:
 
-## Open Source License
-    Copyright 2018,2019 SHUBHAM TYAGI
-    Licensed under the GPL V3
-    you may not use this project except in compliance with the Licence. You may obtain a copy of the License at
-	
-	    https://www.gnu.org/licenses/gpl-3.0.en.html
-    
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
+1. Open the [**Actions**](../../actions) tab.
+2. Select the newest green **Build APK** run.
+3. Download the `trivia-hack-debug-apk` artifact and install the `.apk` on your device.
+
+Every artifact is signed with the same certificate, so newer builds install as normal updates over older ones (no uninstall, no data loss).
+
+## Build from source
+
+```bash
+# Clone
+git clone https://github.com/mastertrivia/trivia-hack-screenshot.git
+cd trivia-hack-screenshot
+
+# Build the debug APK (JDK 8+ and the Android SDK are required)
+./gradlew assembleDebug
+```
+
+The APK is written to `app/build/outputs/apk/debug/`.
+
+## Tech
+
+- Java, Android SDK (`minSdk 19`, `targetSdk 28`)
+- `MediaProjection` + `VirtualDisplay` for screen capture
+- A version-aware MediaStore save path (Android 10+ scoped storage, legacy file + media scan below)
+- Room, AppCompat and a small set of third-party UI libraries
+
+## Supported capture targets
+
+Because the tool captures the screen itself, it works with **any app** — no per-app integration is required.
+
+## Credits
+
+Trivia Capture is a GPLv3 fork of [**Trivia Hack / LoKo HacK**](https://github.com/SubhamTyagi/loco-answers) by [Shubham Tyagi](https://subhamtyagi.github.io/) and keeps the original license and attribution. The floating-screenshot redesign and MediaStore rework are changes made in this fork.
+
+Third-party libraries:
+
+- [BoomMenu](https://github.com/Nightonke/BoomMenu) by Weiping Huang
+- [Process Button](https://github.com/dmytrodanylyk/android-process-button) by Danylyk Dmytro
+- [SweetAlertDialog](https://github.com/F0RIS/sweet-alert-dialog) by Anton
+- [CrashReporter](https://github.com/MindorksOpenSource/CrashReporter) by Bal Sikandar
+- [Android Image Cropper](https://github.com/ArthurHub/Android-Image-Cropper) by Arthur
+- [AppUpdater](https://github.com/javiersantos/AppUpdater) by Javier Santos
+
+## License
+
+Released under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for details.
+
+```
+Copyright (C) 2018, 2019 SHUBHAM TYAGI
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later version.
+```
