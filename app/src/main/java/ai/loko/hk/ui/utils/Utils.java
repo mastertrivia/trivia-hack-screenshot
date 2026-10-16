@@ -37,24 +37,41 @@ import ai.loko.hk.ui.constants.Constant;
 
 public class Utils {
 
+    /** Last timestamp used for a screenshot file name (kept monotonic). */
+    private static long lastScreenshotTimestamp = 0L;
+
     /**
      * Saves a captured screenshot to the app storage folder. The previously existing
      * helpers for OCR image preparation and for saving the extracted question/options
      * as a text log were removed together with OCR and answer search.
      *
      * @param bmp the screenshot to save
+     * @return true when the file was written
      */
-    public static void writeToStorage(Bitmap bmp) {
+    public static boolean writeToStorage(Bitmap bmp) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        File picFile = new File(Constant.PATH, "SCR_" + Long.toString(System.currentTimeMillis()) + ".jpg");
+        // Fast consecutive captures can finish within the same millisecond; keep
+        // the timestamp strictly increasing so two screenshots never share a
+        // file name (a shared name would silently overwrite the first file).
+        long timestamp;
+        synchronized (Utils.class) {
+            timestamp = System.currentTimeMillis();
+            if (timestamp <= lastScreenshotTimestamp) {
+                timestamp = lastScreenshotTimestamp + 1;
+            }
+            lastScreenshotTimestamp = timestamp;
+        }
+        File picFile = new File(Constant.PATH, "SCR_" + Long.toString(timestamp) + ".jpg");
         bmp.compress(Bitmap.CompressFormat.JPEG, 60, bytes);
         try {
             picFile.createNewFile();
             FileOutputStream outputStream = new FileOutputStream(picFile);
             outputStream.write(bytes.toByteArray());
             outputStream.close();
+            return true;
         } catch (IOException e) {
             Logger.logException(e);
+            return false;
         }
     }
 }

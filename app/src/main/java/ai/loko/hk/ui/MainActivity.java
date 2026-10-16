@@ -78,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
     private Intent mFloatingIntent;
     private TextView mOverlayPermmissionBtn, mAccessibilityPermissionBtn;
     private View mStartScreenshotBtn, mMyNotebooksBtn, mSettingsBtn, mSelectProfilesBtn;
+    private TextView mStartScreenshotTitle, mStartScreenshotSubtitle;
     private MediaProjectionManager mMediaProjectionManager;
 
 
@@ -94,16 +95,27 @@ public class MainActivity extends AppCompatActivity {
         mOverlayPermmissionBtn = findViewById(R.id.olpermission5);
         mAccessibilityPermissionBtn = findViewById(R.id.accpermission5);
         mStartScreenshotBtn = findViewById(R.id.start_screenshot);
+        mStartScreenshotTitle = findViewById(R.id.start_screenshot_title);
+        mStartScreenshotSubtitle = findViewById(R.id.start_screenshot_subtitle);
         mMyNotebooksBtn = findViewById(R.id.my_notebooks);
         mSettingsBtn = findViewById(R.id.settings_card);
         mSelectProfilesBtn = findViewById(R.id.select_profiles);
 
-        // START SCREENSHOT: starts the screenshot overlay with a full screen capture
-        // profile, no profile has to be selected first.
+        // START/STOP SCREENSHOT toggle: starts the screenshot overlay with a full
+        // screen capture profile, or stops the running overlay service.
         mStartScreenshotBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startScreenshot();
+                if (Floating.isRunning()) {
+                    // Stop the service; its onDestroy removes the floating icon
+                    // and the notification. The service belongs to this app, so
+                    // the stop always succeeds and the button can switch back
+                    // to START right away.
+                    stopService(mFloatingIntent);
+                    updateStartScreenshotButton(false);
+                } else {
+                    startScreenshot();
+                }
             }
         });
 
@@ -305,6 +317,7 @@ public class MainActivity extends AppCompatActivity {
                     // Restart so the overlay always uses the current (full screen) profile.
                     stopService(mFloatingIntent);
                     startService(mFloatingIntent);
+                    updateStartScreenshotButton(true);
                     finish();
                 }
                 break;
@@ -319,6 +332,26 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
 
         setButtonsColorsAndText();
+        // Reflect the real state of the floating service: it can also be started
+        // from the profile screen and stopped from its notification.
+        updateStartScreenshotButton(Floating.isRunning());
+    }
+
+    /**
+     * Keeps the START/STOP SCREENSHOT button in sync with the actual state of the
+     * floating screenshot service: green "START SCREENSHOT" when no floating
+     * button is on the screen, red "STOP SCREENSHOT" while one is.
+     */
+    private void updateStartScreenshotButton(boolean running) {
+        mStartScreenshotBtn.setBackgroundResource(running
+                ? R.drawable.bg_card_stop
+                : R.drawable.bg_card_start);
+        mStartScreenshotTitle.setText(running
+                ? R.string.stop_screenshot
+                : R.string.start_screenshot);
+        mStartScreenshotSubtitle.setText(running
+                ? R.string.stop_screenshot_hint
+                : R.string.start_screenshot_hint);
     }
 
     private void setButtonsColorsAndText() {

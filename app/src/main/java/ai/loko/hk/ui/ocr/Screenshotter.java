@@ -72,9 +72,12 @@ public class Screenshotter implements ImageReader.OnImageAvailableListener {
         mImageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 1);
         if (mMediaProjection == null) {
             mMediaProjection = MediaProjectionHelper.getMediaProjection(context);
-            if (mMediaProjection == null) {
-                Log.e(TAG, "MediaProjection null. Cannot take the screenshot.");
-            }
+        }
+        if (mMediaProjection == null) {
+            Log.e(TAG, "MediaProjection null. Cannot take the screenshot.");
+            mImageReader = null;
+            deliverResult(null);
+            return;
         }
         try {
             virtualDisplay = mMediaProjection.createVirtualDisplay(
@@ -88,6 +91,8 @@ public class Screenshotter implements ImageReader.OnImageAvailableListener {
         } catch (Exception e) {
             e.printStackTrace();
             Logger.logException(e);
+            tearDown();
+            deliverResult(null);
         }
 
     }
@@ -107,28 +112,71 @@ public class Screenshotter implements ImageReader.OnImageAvailableListener {
 
     @Override
     public void onImageAvailable(ImageReader reader) {
-        Image image = reader.acquireLatestImage();
-        if (image == null) {
-            Log.d(TAG, "onImageAvailable: image is null");
-            return;
+        // Detach the listener first thing. The virtual display keeps mirroring the
+        // screen and further frames can already be latched in the reader while the
+        // first frame is being converted; without detaching, the reader fired this
+        // callback a second time for the same tap and the screenshot was saved
+        // twice (~one refresh cycle apart, both files identical).
+        reader.setOnImageAvailableListener(null, null);
+
+        Bitmap bitmap = null;
+        try {
+            Image image = reader.acquireLatestImage();
+            if (image != null) {
+                try {
+                    final Image.Plane[] planes = image.getPlanes();
+                    final Buffer buffer = planes[0].getBuffer().rewind();
+                    int pixelStride = planes[0].getPixelStride();
+                    int rowStride = planes[0].getRowStride();
+                    int rowPadding = rowStride - pixelStride * width;
+                    bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
+                    bitmap.copyPixelsFromBuffer(buffer);
+                } finally {
+                    image.close();
+                }
+            } else {
+                Log.d(TAG, "onImageAvailable: image is null");
+            }
+        } catch (Exception e) {
+            Logger.logException(e);
+            bitmap = null;
+        } finally {
+            tearDown();
         }
 
-        final Image.Plane[] planes = image.getPlanes();
-        final Buffer buffer = planes[0].getBuffer().rewind();
-        int pixelStride = planes[0].getPixelStride();
-        int rowStride = planes[0].getRowStride();
-        int rowPadding = rowStride - pixelStride * width;
-        Bitmap bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
-        bitmap.copyPixelsFromBuffer(buffer);
-        tearDown();
-        image.close();
-        cb.onScreenshot(bitmap);
+        deliverResult(bitmap);
+    }
+
+    /**
+     * Delivers the result of one takeScreenshot() call exactly once: the stored
+     * callback is cleared before it is invoked so a stray second frame delivery
+     * can never trigger the callback (and therefore a second save) again.
+     */
+    private void deliverResult(Bitmap bitmap) {
+        ScreenshotCallback callback = cb;
+        cb = null;
+        if (callback != null) {
+            callback.onScreenshot(bitmap);
+        }
     }
 
     private void tearDown() {
-        virtualDisplay.release();
-        if (mMediaProjection != null) mMediaProjection.stop();
-        mMediaProjection = null;
+        if (virtualDisplay != null) {
+            try {
+                virtualDisplay.release();
+            } catch (Exception e) {
+                Logger.logException(e);
+            }
+            virtualDisplay = null;
+        }
+        if (mMediaProjection != null) {
+            try {
+                mMediaProjection.stop();
+            } catch (Exception e) {
+                Logger.logException(e);
+            }
+            mMediaProjection = null;
+        }
         mImageReader = null;
     }
 

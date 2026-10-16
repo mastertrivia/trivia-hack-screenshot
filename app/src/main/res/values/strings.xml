@@ -38,6 +38,8 @@
     <string name="perm_overlay">OVERLAY</string>
     <string name="start_screenshot">START SCREENSHOT</string>
     <string name="start_screenshot_hint">(Default: Full Screen)</string>
+    <string name="stop_screenshot">STOP SCREENSHOT</string>
+    <string name="stop_screenshot_hint">(Tap to hide the floating button)</string>
     <string name="my_notebooks">MY NOTEBOOKS</string>
     <string name="settings_title">SETTINGS</string>
     <string name="select_profiles">SELECT PROFILES</string>

@@ -46,6 +46,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
+import android.view.animation.OvershootInterpolator;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
@@ -53,11 +55,15 @@ import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import ai.loko.hk.ui.MainActivity;
 import ai.loko.hk.ui.constants.Constant;
 import ai.loko.hk.ui.ocr.MediaProjectionHelper;
 import ai.loko.hk.ui.ocr.Points;
 import ai.loko.hk.ui.ocr.Screenshotter;
+import ai.loko.hk.ui.utils.Logger;
 import ai.loko.hk.ui.utils.Utils;
 import ui.R;
 
@@ -84,15 +90,59 @@ public class Floating extends Service {
     private static final int BUTTON_SIZE_MIN_DP = Constant.FLOATING_BUTTON_SIZE_MIN;
     private static final int BUTTON_SIZE_DEFAULT_OFFSET = Constant.FLOATING_BUTTON_SIZE_DEFAULT;
 
+    /**
+     * Upper bound for taps that arrive while a capture is already running. Each
+     * accepted tap produces exactly one screenshot; the queue only decides the
+     * order in which they are processed.
+     */
+    private static final int MAX_PENDING_CAPTURES = 20;
+
+    /**
+     * True while the floating button is on the screen. Read by the home screen
+     * (same process) to show the START/STOP SCREENSHOT button in the correct state.
+     */
+    private static volatile boolean sRunning = false;
+
     private WindowManager mWindowManager;
     private View mFloatingView;
+    private ImageView mIconView;
     private WindowManager.LayoutParams params;
     private NotificationManagerCompat notificationManager;
     private Screenshotter screenshotter;
     private int width, height;
     private final int[] coordinate = new int[4];
     private volatile boolean capturing = false;
+    /** Whether the floating window is currently removed from the window manager. */
+    private boolean mIconHidden = false;
+    /** Taps that arrived while a capture was running and still have to be executed. */
+    private int mPendingCaptures = 0;
+    /** Saves run one after another so two captures can never write at once. */
+    private final ExecutorService saveExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    /**
+     * Switches the icon back from the checkmark to the camera after a successful
+     * capture was confirmed.
+     */
+    private final Runnable mResetIconRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (mIconView != null) {
+                mIconView.setImageResource(R.drawable.ic_camera_white);
+                mIconView.animate().cancel();
+                mIconView.setScaleX(1f);
+                mIconView.setScaleY(1f);
+                mIconView.setAlpha(1f);
+            }
+        }
+    };
+
+    /**
+     * Whether the floating screenshot button is currently on the screen.
+     */
+    public static boolean isRunning() {
+        return sRunning;
+    }
 
     private final SharedPreferences.OnSharedPreferenceChangeListener sizeListener =
             new SharedPreferences.OnSharedPreferenceChangeListener() {
@@ -117,10 +167,12 @@ public class Floating extends Service {
         super.onCreate();
         android.os.Process.setThreadPriority(THREAD_PRIORITY_BACKGROUND + THREAD_PRIORITY_MORE_FAVORABLE);
 
+        sRunning = true;
         notificationManager = NotificationManagerCompat.from(this);
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
         mFloatingView = LayoutInflater.from(this).inflate(R.layout.floating, new LinearLayout(this));
+        mIconView = mFloatingView.findViewById(R.id.icon);
         notification();
 
         int LAYOUT_FLAG;
@@ -228,42 +280,144 @@ public class Floating extends Service {
     /**
      * Captures the screen and saves it, using the same screenshot engine the old
      * "Get Answer" button used. No OCR and no answer search is performed.
+     * <p>
+     * One accepted tap produces exactly one screenshot. Taps that arrive while a
+     * capture is already running are queued (bounded) and executed right after the
+     * current capture, so rapid consecutive taps all go through without merging
+     * and without duplicates.
      */
     private void captureScreenshot() {
         if (capturing) {
+            if (mPendingCaptures < MAX_PENDING_CAPTURES) {
+                mPendingCaptures++;
+            }
             return;
         }
+        startCapture();
+    }
+
+    private void startCapture() {
         if (MediaProjectionHelper.screenshotPermission == null) {
-            Toast.makeText(this, "Screen capture permission missing, tap START SCREENSHOT again",
-                    Toast.LENGTH_LONG).show();
+            mPendingCaptures = 0;
+            showToast("Screen capture permission missing, tap START SCREENSHOT again");
             return;
         }
         capturing = true;
+        // Remove the floating window from the screen before the virtual display
+        // starts mirroring so the icon can never end up in the screenshot. The
+        // window (with its position and size) is added back the moment the frame
+        // has been acquired.
+        hideIconForCapture();
         try {
             screenshotter.takeScreenshot(new Screenshotter.ScreenshotCallback() {
                 @Override
                 public void onScreenshot(final Bitmap bitmap) {
-                    new Thread(new Runnable() {
+                    // Runs on the main thread, exactly once per accepted tap.
+                    if (!sRunning) {
+                        // The service was stopped (notification or home screen
+                        // toggle) while this capture was in flight.
+                        return;
+                    }
+                    showIconAfterCapture();
+                    if (bitmap == null) {
+                        // Capture failed, for example because the capture
+                        // permission was revoked.
+                        mPendingCaptures = 0;
+                        capturing = false;
+                        showToast("Screenshot failed, tap START SCREENSHOT again");
+                        return;
+                    }
+                    saveExecutor.execute(new Runnable() {
                         @Override
                         public void run() {
-                            boolean saved = false;
                             if (isScreenshotSavingEnabled()) {
-                                Utils.writeToStorage(cropToProfileRegion(bitmap));
-                                saved = true;
+                                if (!Utils.writeToStorage(cropToProfileRegion(bitmap))) {
+                                    showToast("Screenshot could not be saved");
+                                }
+                            } else {
+                                showToast("Screenshot taken, saving is disabled in Settings");
                             }
-                            capturing = false;
-                            showToast(saved
-                                    ? "Screenshot saved"
-                                    : "Screenshot taken, saving is disabled in Settings");
                         }
-                    }).start();
+                    });
+                    // Continue with the next queued tap immediately, without waiting
+                    // for the save to finish (saving runs on its own thread).
+                    if (mPendingCaptures > 0) {
+                        mPendingCaptures--;
+                        startCapture();
+                    } else {
+                        capturing = false;
+                    }
                 }
             });
         } catch (Exception e) {
             // Capture failed, for example because the capture permission was revoked.
+            Logger.logException(e);
+            mPendingCaptures = 0;
             capturing = false;
+            if (sRunning) {
+                showIconAfterCapture();
+            }
             showToast("Screenshot failed, tap START SCREENSHOT again");
         }
+    }
+
+    /**
+     * Removes the floating window from the screen immediately, before the capture
+     * starts, so the icon cannot appear in the screenshot.
+     */
+    private void hideIconForCapture() {
+        mainHandler.removeCallbacks(mResetIconRunnable);
+        if (mIconView != null) {
+            mIconView.animate().cancel();
+            mIconView.setScaleX(1f);
+            mIconView.setScaleY(1f);
+            mIconView.setAlpha(1f);
+        }
+        if (!mIconHidden && mWindowManager != null && mFloatingView != null
+                && mFloatingView.isAttachedToWindow()) {
+            // removeViewImmediate guarantees the window is gone before this call
+            // returns, i.e. before the virtual display mirrors the screen.
+            mWindowManager.removeViewImmediate(mFloatingView);
+            mIconHidden = true;
+        }
+    }
+
+    /**
+     * Puts the floating window back (same position and size) and confirms the
+     * capture with a short checkmark animation.
+     */
+    private void showIconAfterCapture() {
+        if (mIconHidden && sRunning && mWindowManager != null && mFloatingView != null
+                && !mFloatingView.isAttachedToWindow()) {
+            mWindowManager.addView(mFloatingView, params);
+            mIconHidden = false;
+        }
+        playCaptureFeedback();
+    }
+
+    /**
+     * Lightweight confirmation shown after every successful capture: the camera
+     * turns into a checkmark with a quick pop, then the camera icon returns. The
+     * animation never blocks taps; a new capture simply cancels and restarts it.
+     */
+    private void playCaptureFeedback() {
+        if (mIconView == null) {
+            return;
+        }
+        mainHandler.removeCallbacks(mResetIconRunnable);
+        mIconView.setImageResource(R.drawable.ic_check_white);
+        mIconView.animate().cancel();
+        mIconView.setScaleX(0.65f);
+        mIconView.setScaleY(0.65f);
+        mIconView.setAlpha(0.5f);
+        mIconView.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(160)
+                .setInterpolator(new OvershootInterpolator(1.6f))
+                .start();
+        mainHandler.postDelayed(mResetIconRunnable, 340);
     }
 
     /**
@@ -336,9 +490,14 @@ public class Floating extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        sRunning = false;
+        saveExecutor.shutdown();
+        mainHandler.removeCallbacks(mResetIconRunnable);
         PreferenceManager.getDefaultSharedPreferences(this)
                 .unregisterOnSharedPreferenceChangeListener(sizeListener);
-        if (mFloatingView != null && mWindowManager != null) mWindowManager.removeView(mFloatingView);
+        if (mFloatingView != null && mWindowManager != null && mFloatingView.isAttachedToWindow()) {
+            mWindowManager.removeView(mFloatingView);
+        }
         if (notificationManager != null) notificationManager.cancelAll();
     }
 
