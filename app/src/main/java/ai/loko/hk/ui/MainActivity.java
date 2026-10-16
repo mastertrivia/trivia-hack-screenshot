@@ -58,7 +58,6 @@ import com.nightonke.boommenu.ButtonEnum;
 import com.nightonke.boommenu.Piece.PiecePlaceEnum;
 
 import java.io.File;
-import java.io.IOException;
 
 import ai.loko.hk.ui.activities.ProfileActivity;
 import ai.loko.hk.ui.activities.SettingsActivity;
@@ -66,7 +65,6 @@ import ai.loko.hk.ui.constants.Constant;
 import ai.loko.hk.ui.ocr.MediaProjectionHelper;
 import ai.loko.hk.ui.ocr.Points;
 import ai.loko.hk.ui.services.Floating;
-import ai.loko.hk.ui.utils.Logger;
 import cn.pedant.SweetAlert.SweetAlertDialog;
 import ui.BuildConfig;
 import ui.R;
@@ -390,14 +388,10 @@ public class MainActivity extends AppCompatActivity {
 
         if (requestCode == REQUEST_CODE_STORAGE_PERMISSION) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Screenshots go to /Pictures/TriviaHacK; no .nomedia file is
+                // created there on purpose, so the gallery can show them.
                 new File(Constant.PATH).mkdirs();
                 new File(Constant.PATH_TO_ERRORS).mkdirs();
-
-                try {
-                    new File(Constant.PATH, ".nomedia").createNewFile();
-                } catch (IOException e) {
-                    Logger.logException(e);
-                }
             } else {
                 finish();
             }

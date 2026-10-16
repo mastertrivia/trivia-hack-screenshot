@@ -42,6 +42,11 @@ public class Constant {
     /** Stored value that is used when the user never moved the size slider (40 + 24 = 64dp). */
     public static final int FLOATING_BUTTON_SIZE_DEFAULT = 24;
 
-    public static final String PATH = Environment.getExternalStorageDirectory() + "/TriviaHacK/";
+    /**
+     * Screenshots are saved into the shared Pictures folder so they show up in
+     * the gallery and file manager. Crash reports stay in the private errors
+     * folder below.
+     */
+    public static final String PATH = Environment.getExternalStorageDirectory() + "/Pictures/TriviaHacK/";
     public static final String PATH_TO_ERRORS = Environment.getExternalStorageDirectory() + "/TriviaHacK/errors";
 }

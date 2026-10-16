@@ -97,6 +97,9 @@ public class Floating extends Service {
      */
     private static final int MAX_PENDING_CAPTURES = 20;
 
+    /** How long the green "screenshot saved" border stays visible after the checkmark. */
+    private static final int CONFIRMED_BORDER_DURATION_MS = 1750;
+
     /**
      * True while the floating button is on the screen. Read by the home screen
      * (same process) to show the START/STOP SCREENSHOT button in the correct state.
@@ -114,6 +117,8 @@ public class Floating extends Service {
     private volatile boolean capturing = false;
     /** Whether the floating window is currently removed from the window manager. */
     private boolean mIconHidden = false;
+    /** True while the red button shows the green "last screenshot saved" border. */
+    private boolean mLastSaveConfirmed = false;
     /** Taps that arrived while a capture was running and still have to be executed. */
     private int mPendingCaptures = 0;
     /** Saves run one after another so two captures can never write at once. */
@@ -121,10 +126,11 @@ public class Floating extends Service {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     /**
-     * Switches the icon back from the checkmark to the camera after a successful
-     * capture was confirmed.
+     * End of the checkmark phase: the camera icon returns on the red button and
+     * the border turns green for a while, showing that the last screenshot was
+     * really saved.
      */
-    private final Runnable mResetIconRunnable = new Runnable() {
+    private final Runnable mCheckmarkEndRunnable = new Runnable() {
         @Override
         public void run() {
             if (mIconView != null) {
@@ -133,6 +139,25 @@ public class Floating extends Service {
                 mIconView.setScaleX(1f);
                 mIconView.setScaleY(1f);
                 mIconView.setAlpha(1f);
+            }
+            mLastSaveConfirmed = true;
+            if (mFloatingView != null) {
+                mFloatingView.setBackgroundResource(R.drawable.bg_floating_button_saved);
+            }
+            mainHandler.postDelayed(mBorderResetRunnable, CONFIRMED_BORDER_DURATION_MS);
+        }
+    };
+
+    /**
+     * End of the green-border confirmation phase: back to the ready state
+     * (red camera button, white border).
+     */
+    private final Runnable mBorderResetRunnable = new Runnable() {
+        @Override
+        public void run() {
+            mLastSaveConfirmed = false;
+            if (mFloatingView != null) {
+                mFloatingView.setBackgroundResource(R.drawable.bg_floating_button);
             }
         }
     };
@@ -330,12 +355,23 @@ public class Floating extends Service {
                     saveExecutor.execute(new Runnable() {
                         @Override
                         public void run() {
-                            if (isScreenshotSavingEnabled()) {
-                                if (!Utils.writeToStorage(cropToProfileRegion(bitmap))) {
-                                    showToast("Screenshot could not be saved");
-                                }
-                            } else {
+                            if (!isScreenshotSavingEnabled()) {
+                                // Nothing is written, so there is nothing to
+                                // confirm: no checkmark without a saved file.
                                 showToast("Screenshot taken, saving is disabled in Settings");
+                                return;
+                            }
+                            if (Utils.writeToStorage(getApplicationContext(), cropToProfileRegion(bitmap))) {
+                                // Only a really saved screenshot gets the green
+                                // checkmark confirmation.
+                                mainHandler.post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        playCaptureFeedback();
+                                    }
+                                });
+                            } else {
+                                showToast("Screenshot could not be saved");
                             }
                         }
                     });
@@ -366,12 +402,21 @@ public class Floating extends Service {
      * starts, so the icon cannot appear in the screenshot.
      */
     private void hideIconForCapture() {
-        mainHandler.removeCallbacks(mResetIconRunnable);
+        mainHandler.removeCallbacks(mCheckmarkEndRunnable);
+        mainHandler.removeCallbacks(mBorderResetRunnable);
         if (mIconView != null) {
             mIconView.animate().cancel();
             mIconView.setScaleX(1f);
             mIconView.setScaleY(1f);
             mIconView.setAlpha(1f);
+            // Drop a checkmark that is still on screen: the icon must never come
+            // back showing a tick while the next capture is still in progress.
+            mIconView.setImageResource(R.drawable.ic_camera_white);
+        }
+        if (mFloatingView != null) {
+            mFloatingView.setBackgroundResource(mLastSaveConfirmed
+                    ? R.drawable.bg_floating_button_saved
+                    : R.drawable.bg_floating_button);
         }
         if (!mIconHidden && mWindowManager != null && mFloatingView != null
                 && mFloatingView.isAttachedToWindow()) {
@@ -383,8 +428,10 @@ public class Floating extends Service {
     }
 
     /**
-     * Puts the floating window back (same position and size) and confirms the
-     * capture with a short checkmark animation.
+     * Puts the floating window back (same position and size) as soon as the
+     * frame was acquired. No confirmation is played here: the checkmark means
+     * "screenshot saved" and is only shown after the file really is on storage
+     * (see the save task in {@link #startCapture()}).
      */
     private void showIconAfterCapture() {
         if (mIconHidden && sRunning && mWindowManager != null && mFloatingView != null
@@ -392,19 +439,24 @@ public class Floating extends Service {
             mWindowManager.addView(mFloatingView, params);
             mIconHidden = false;
         }
-        playCaptureFeedback();
     }
 
     /**
-     * Lightweight confirmation shown after every successful capture: the camera
-     * turns into a checkmark with a quick pop, then the camera icon returns. The
-     * animation never blocks taps; a new capture simply cancels and restarts it.
+     * Confirmation played after a screenshot was really written to storage: the
+     * red button turns green with a white checkmark and a quick pop (~340ms),
+     * then the camera returns on a red button whose border stays green for
+     * ~1.75s before the white ready border comes back. The animation never
+     * blocks taps; a new capture simply cancels and restarts it.
      */
     private void playCaptureFeedback() {
-        if (mIconView == null) {
+        if (!sRunning || mIconView == null) {
             return;
         }
-        mainHandler.removeCallbacks(mResetIconRunnable);
+        mainHandler.removeCallbacks(mCheckmarkEndRunnable);
+        mainHandler.removeCallbacks(mBorderResetRunnable);
+        if (mFloatingView != null) {
+            mFloatingView.setBackgroundResource(R.drawable.bg_floating_button_success);
+        }
         mIconView.setImageResource(R.drawable.ic_check_white);
         mIconView.animate().cancel();
         mIconView.setScaleX(0.65f);
@@ -417,7 +469,7 @@ public class Floating extends Service {
                 .setDuration(160)
                 .setInterpolator(new OvershootInterpolator(1.6f))
                 .start();
-        mainHandler.postDelayed(mResetIconRunnable, 340);
+        mainHandler.postDelayed(mCheckmarkEndRunnable, 340);
     }
 
     /**
@@ -492,7 +544,8 @@ public class Floating extends Service {
         super.onDestroy();
         sRunning = false;
         saveExecutor.shutdown();
-        mainHandler.removeCallbacks(mResetIconRunnable);
+        mainHandler.removeCallbacks(mCheckmarkEndRunnable);
+        mainHandler.removeCallbacks(mBorderResetRunnable);
         PreferenceManager.getDefaultSharedPreferences(this)
                 .unregisterOnSharedPreferenceChangeListener(sizeListener);
         if (mFloatingView != null && mWindowManager != null && mFloatingView.isAttachedToWindow()) {

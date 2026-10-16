@@ -26,7 +26,9 @@
 
 package ai.loko.hk.ui.utils;
 
+import android.content.Context;
 import android.graphics.Bitmap;
+import android.media.MediaScannerConnection;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -41,14 +43,18 @@ public class Utils {
     private static long lastScreenshotTimestamp = 0L;
 
     /**
-     * Saves a captured screenshot to the app storage folder. The previously existing
-     * helpers for OCR image preparation and for saving the extracted question/options
-     * as a text log were removed together with OCR and answer search.
+     * Saves a captured screenshot to the shared Pictures folder
+     * (/Pictures/TriviaHacK), creating the folder if needed. The previously
+     * existing helpers for OCR image preparation and for saving the extracted
+     * question/options as a text log were removed together with OCR and answer
+     * search.
      *
-     * @param bmp the screenshot to save
+     * @param context used to notify the media scanner so the image shows up in
+     *                the gallery and file manager right away
+     * @param bmp     the screenshot to save
      * @return true when the file was written
      */
-    public static boolean writeToStorage(Bitmap bmp) {
+    public static boolean writeToStorage(Context context, Bitmap bmp) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         // Fast consecutive captures can finish within the same millisecond; keep
         // the timestamp strictly increasing so two screenshots never share a
@@ -61,13 +67,22 @@ public class Utils {
             }
             lastScreenshotTimestamp = timestamp;
         }
-        File picFile = new File(Constant.PATH, "SCR_" + Long.toString(timestamp) + ".jpg");
+        File dir = new File(Constant.PATH);
+        if (!dir.exists() && !dir.mkdirs()) {
+            // Fall through: the write below will fail and be reported.
+        }
+        File picFile = new File(dir, "SCR_" + Long.toString(timestamp) + ".jpg");
         bmp.compress(Bitmap.CompressFormat.JPEG, 60, bytes);
         try {
             picFile.createNewFile();
             FileOutputStream outputStream = new FileOutputStream(picFile);
             outputStream.write(bytes.toByteArray());
             outputStream.close();
+            // Make the new screenshot visible to the gallery/file manager
+            // without waiting for the next media rescan.
+            MediaScannerConnection.scanFile(context,
+                    new String[]{picFile.getAbsolutePath()},
+                    new String[]{"image/jpeg"}, null);
             return true;
         } catch (IOException e) {
             Logger.logException(e);
