@@ -108,6 +108,15 @@ public class Floating extends Service {
 
     private WindowManager mWindowManager;
     private View mFloatingView;
+    /**
+     * The round button view that actually carries the button background.
+     * The inflated layout is attached to a wrapper LinearLayout that is added
+     * to the window manager (see onCreate), so mFloatingView is only that
+     * invisible wrapper; setting a background on it would paint behind the
+     * round child and never be visible. The state backgrounds (ready/success/
+     * saved) must be set on this view.
+     */
+    private View mButtonView;
     private ImageView mIconView;
     private WindowManager.LayoutParams params;
     private NotificationManagerCompat notificationManager;
@@ -141,8 +150,8 @@ public class Floating extends Service {
                 mIconView.setAlpha(1f);
             }
             mLastSaveConfirmed = true;
-            if (mFloatingView != null) {
-                mFloatingView.setBackgroundResource(R.drawable.bg_floating_button_saved);
+            if (mButtonView != null) {
+                mButtonView.setBackgroundResource(R.drawable.bg_floating_button_saved);
             }
             mainHandler.postDelayed(mBorderResetRunnable, CONFIRMED_BORDER_DURATION_MS);
         }
@@ -156,8 +165,8 @@ public class Floating extends Service {
         @Override
         public void run() {
             mLastSaveConfirmed = false;
-            if (mFloatingView != null) {
-                mFloatingView.setBackgroundResource(R.drawable.bg_floating_button);
+            if (mButtonView != null) {
+                mButtonView.setBackgroundResource(R.drawable.bg_floating_button);
             }
         }
     };
@@ -197,6 +206,7 @@ public class Floating extends Service {
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
         mFloatingView = LayoutInflater.from(this).inflate(R.layout.floating, new LinearLayout(this));
+        mButtonView = mFloatingView.findViewById(R.id.head);
         mIconView = mFloatingView.findViewById(R.id.icon);
         notification();
 
@@ -249,7 +259,7 @@ public class Floating extends Service {
      * touch slop) captures the screenshot.
      */
     private void setupDragAndTap() {
-        final View head = mFloatingView.findViewById(R.id.head);
+        final View head = mButtonView;
         final int touchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
 
         head.setOnTouchListener(new View.OnTouchListener() {
@@ -413,8 +423,8 @@ public class Floating extends Service {
             // back showing a tick while the next capture is still in progress.
             mIconView.setImageResource(R.drawable.ic_camera_white);
         }
-        if (mFloatingView != null) {
-            mFloatingView.setBackgroundResource(mLastSaveConfirmed
+        if (mButtonView != null) {
+            mButtonView.setBackgroundResource(mLastSaveConfirmed
                     ? R.drawable.bg_floating_button_saved
                     : R.drawable.bg_floating_button);
         }
@@ -454,8 +464,8 @@ public class Floating extends Service {
         }
         mainHandler.removeCallbacks(mCheckmarkEndRunnable);
         mainHandler.removeCallbacks(mBorderResetRunnable);
-        if (mFloatingView != null) {
-            mFloatingView.setBackgroundResource(R.drawable.bg_floating_button_success);
+        if (mButtonView != null) {
+            mButtonView.setBackgroundResource(R.drawable.bg_floating_button_success);
         }
         mIconView.setImageResource(R.drawable.ic_check_white);
         mIconView.animate().cancel();

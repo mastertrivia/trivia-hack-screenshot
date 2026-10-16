@@ -26,9 +26,11 @@
 
 package ai.loko.hk.ui.utils;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaScannerConnection;
+import android.provider.MediaStore;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -78,8 +80,25 @@ public class Utils {
             FileOutputStream outputStream = new FileOutputStream(picFile);
             outputStream.write(bytes.toByteArray());
             outputStream.close();
-            // Make the new screenshot visible to the gallery/file manager
-            // without waiting for the next media rescan.
+            // Make the new screenshot visible in the gallery/file manager.
+            // The MediaStore row is inserted directly and synchronously; this
+            // works on every supported Android version and does not depend on
+            // the media scanner service, which some OEM skins (e.g. MIUI)
+            // delay or ignore for background requests. The scanner call below
+            // stays as a fallback and refreshes the row metadata.
+            try {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Images.Media.DATA, picFile.getAbsolutePath());
+                values.put(MediaStore.Images.Media.TITLE, picFile.getName());
+                values.put(MediaStore.Images.Media.DISPLAY_NAME, picFile.getName());
+                values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+                values.put(MediaStore.Images.Media.DATE_ADDED, timestamp / 1000);
+                values.put(MediaStore.Images.Media.DATE_TAKEN, timestamp);
+                context.getContentResolver().insert(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            } catch (Exception e) {
+                Logger.logException(e);
+            }
             MediaScannerConnection.scanFile(context,
                     new String[]{picFile.getAbsolutePath()},
                     new String[]{"image/jpeg"}, null);
