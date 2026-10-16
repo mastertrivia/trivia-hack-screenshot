@@ -61,6 +61,19 @@ android {
         exclude 'META-INF/CHANGES'
 
     }
+    signingConfigs {
+        // The original project keystore (restored from git history, commit e229691).
+        // Signing debug builds with this stable key means every build - local or
+        // CI - carries the same signature, so each new APK installs directly over
+        // the previously installed one without uninstalling first.
+        debug {
+            keyAlias 'debug'
+            keyPassword '123456'
+            storeFile file('../debug-key.jks')
+            storePassword '123456'
+        }
+    }
+
     buildTypes {
         release {
             //minifyEnabled true
@@ -80,7 +93,7 @@ android {
             renderscriptDebuggable true
             minifyEnabled false
             zipAlignEnabled false
-            //signingConfig signingConfigs.debug
+            signingConfig signingConfigs.debug
         }
     }
 
