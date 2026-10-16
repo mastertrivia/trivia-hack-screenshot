@@ -82,12 +82,59 @@ public class Utils {
             Log.e(TAG, "writeToStorage: context or bitmap is null, nothing to save");
             return false;
         }
+        makeScreenshotFolderVisible(context);
         long timestamp = nextTimestamp();
         String fileName = "SCR_" + Long.toString(timestamp) + ".jpg";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             return saveWithMediaStore(context, bmp, fileName, timestamp);
         }
         return saveToPicturesAndScan(context, bmp, fileName, timestamp);
+    }
+
+    /**
+     * Guards against a stray {@code .nomedia} marker inside the app's own
+     * screenshot folder. A single {@code .nomedia} file makes the media scanner
+     * and every gallery skip the whole directory, so valid JPEGs stay invisible
+     * (they open in a file manager but have no MediaStore row and no
+     * edit/crop/share actions). The folder belongs to the app, so removing a
+     * marker that is hiding the app's own screenshots is safe.
+     * <p>
+     * When a marker is found it is deleted and the folder is re-scanned once so
+     * screenshots that were already saved while it was hidden become visible too.
+     */
+    private static void makeScreenshotFolderVisible(Context context) {
+        File dir = new File(Constant.PATH);
+        File noMedia = new File(dir, ".nomedia");
+        if (!noMedia.exists()) {
+            return;
+        }
+        if (noMedia.delete()) {
+            Log.w(TAG, "Removed stray .nomedia that hid " + dir.getAbsolutePath());
+            rescanScreenshotFolder(context, dir);
+        } else {
+            Log.e(TAG, "Found .nomedia in " + dir.getAbsolutePath() + " but could not delete it");
+        }
+    }
+
+    /**
+     * Hands every file that is already in the screenshot folder to the media
+     * scanner once. Used after a stray {@code .nomedia} marker was removed so
+     * screenshots written while the folder was hidden get a MediaStore row.
+     */
+    private static void rescanScreenshotFolder(Context context, File dir) {
+        File[] files = dir.listFiles();
+        if (files == null || files.length == 0) {
+            return;
+        }
+        String[] paths = new String[files.length];
+        String[] mimeTypes = new String[files.length];
+        for (int i = 0; i < files.length; i++) {
+            paths[i] = files[i].getAbsolutePath();
+            mimeTypes[i] = files[i].getName().toLowerCase().endsWith(".jpg")
+                    ? MIME_TYPE_JPEG
+                    : null;
+        }
+        MediaScannerConnection.scanFile(context, paths, mimeTypes, null);
     }
 
     /**
