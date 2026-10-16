@@ -30,7 +30,11 @@ apply plugin: 'com.android.application'
 
 
 android {
-    compileSdkVersion 28
+    // compileSdk 29 is required to reference the scoped-storage columns
+    // (RELATIVE_PATH, IS_PENDING) used by the Android 10+ MediaStore save path.
+    // targetSdk stays at 28 so the legacy storage behaviour of older builds is
+    // preserved on devices below Android 10.
+    compileSdkVersion 29
 
     defaultConfig {
         applicationId "ai.loko.hk.ui"
