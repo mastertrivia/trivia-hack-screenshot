@@ -55,7 +55,7 @@ android {
         variant.outputs.all {
             def date = new Date()
             def formattedDate = date.format('yyyyMMddHHmmss')
-            outputFileName = "Trivia-Hack-${variant.name}-${variant.versionName}-${formattedDate}.apk"
+            outputFileName = "Trivia-Capture-${variant.name}-${variant.versionName}-${formattedDate}.apk"
         }
     }
     packagingOptions {

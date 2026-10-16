@@ -58,7 +58,7 @@ This fork publishes build artifacts from its CI rather than the upstream release
 
 1. Open the [**Actions**](../../actions) tab.
 2. Select the newest green **Build APK** run.
-3. Download the `trivia-hack-debug-apk` artifact and install the `.apk` on your device.
+3. Download the `trivia-capture-debug-apk` artifact and install the `.apk` on your device.
 
 Every artifact is signed with the same certificate, so newer builds install as normal updates over older ones (no uninstall, no data loss).
 

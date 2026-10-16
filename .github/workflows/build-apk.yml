@@ -27,5 +27,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: trivia-hack-debug-apk
+          name: trivia-capture-debug-apk
           path: app/build/outputs/apk/debug/*.apk
