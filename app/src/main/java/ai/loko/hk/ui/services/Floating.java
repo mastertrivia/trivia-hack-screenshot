@@ -106,6 +106,24 @@ public class Floating extends Service {
      */
     private static volatile boolean sRunning = false;
 
+    /**
+     * The currently alive service instance. All lifecycle decisions (may this
+     * callback still touch views, does the home screen show STOP?) are made
+     * against this reference, so a delayed onDestroy of an old instance can
+     * never mark a newer instance as stopped.
+     */
+    private static volatile Floating sInstance;
+
+    /**
+     * The last overlay window this process added. Kept statically so a later
+     * service instance can clean the window up if an earlier one ever left it
+     * behind - the app must never show two floating icons.
+     */
+    private static volatile View sOverlayView;
+
+    /** Notification id of the foreground notification that keeps us alive. */
+    private static final int NOTIFICATION_ID = 1234;
+
     private WindowManager mWindowManager;
     private View mFloatingView;
     /**
@@ -126,6 +144,15 @@ public class Floating extends Service {
     private volatile boolean capturing = false;
     /** Whether the floating window is currently removed from the window manager. */
     private boolean mIconHidden = false;
+    /**
+     * Whether the overlay window is currently registered with the window
+     * manager. Tracked by the service itself instead of
+     * View.isAttachedToWindow(): right after addView() the attach is only
+     * dispatched on the next frame, so isAttachedToWindow() is still false
+     * there - the old code skipped removal in onDestroy in exactly that
+     * window and left a stuck icon behind.
+     */
+    private boolean mOverlayAdded = false;
     /** True while the red button shows the green "last screenshot saved" border. */
     private boolean mLastSaveConfirmed = false;
     /** Taps that arrived while a capture was running and still have to be executed. */
@@ -136,14 +163,14 @@ public class Floating extends Service {
 
     /**
      * End of the checkmark phase: the camera icon returns on the red button and
-     * the border turns green for a while, showing that the last screenshot was
-     * really saved.
+     * both the border and the camera icon turn green for a while, showing that
+     * the last screenshot was really saved.
      */
     private final Runnable mCheckmarkEndRunnable = new Runnable() {
         @Override
         public void run() {
             if (mIconView != null) {
-                mIconView.setImageResource(R.drawable.ic_camera_white);
+                mIconView.setImageResource(R.drawable.ic_camera_green);
                 mIconView.animate().cancel();
                 mIconView.setScaleX(1f);
                 mIconView.setScaleY(1f);
@@ -159,12 +186,15 @@ public class Floating extends Service {
 
     /**
      * End of the green-border confirmation phase: back to the ready state
-     * (red camera button, white border).
+     * (red button, white camera icon, white border).
      */
     private final Runnable mBorderResetRunnable = new Runnable() {
         @Override
         public void run() {
             mLastSaveConfirmed = false;
+            if (mIconView != null) {
+                mIconView.setImageResource(R.drawable.ic_camera_white);
+            }
             if (mButtonView != null) {
                 mButtonView.setBackgroundResource(R.drawable.bg_floating_button);
             }
@@ -176,6 +206,92 @@ public class Floating extends Service {
      */
     public static boolean isRunning() {
         return sRunning;
+    }
+
+    /** Whether this exact service instance is still the alive one. */
+    private boolean isAlive() {
+        return sInstance == this;
+    }
+
+    /**
+     * Adds the overlay window to the screen exactly once and remembers it
+     * process-wide so it can always be cleaned up later.
+     */
+    private void addOverlayView() {
+        if (mOverlayAdded || mWindowManager == null || mFloatingView == null) {
+            return;
+        }
+        // Safety net: never show two buttons. If a previous instance somehow
+        // left its window behind, remove it first.
+        View leftover = sOverlayView;
+        if (leftover != null && leftover != mFloatingView) {
+            try {
+                mWindowManager.removeViewImmediate(leftover);
+            } catch (Exception ignored) {
+                // Already gone.
+            }
+        }
+        try {
+            mWindowManager.addView(mFloatingView, params);
+            mOverlayAdded = true;
+            sOverlayView = mFloatingView;
+        } catch (Exception e) {
+            // Overlay permission was revoked while running, or the display is
+            // invalid. Without a window the service has no purpose: stop it so
+            // the home screen shows START SCREENSHOT again.
+            Logger.logException(e);
+            showToast("Cannot show the floating button, check the overlay permission");
+            stopSelf();
+        }
+    }
+
+    /**
+     * Removes the overlay window and clears the process-wide bookkeeping.
+     * Deliberately does not consult View.isAttachedToWindow() (see the
+     * mOverlayAdded field) and is exception-safe: the window may already have
+     * been removed by the system.
+     */
+    private void removeOverlayView(boolean immediate) {
+        if (!mOverlayAdded || mWindowManager == null || mFloatingView == null) {
+            return;
+        }
+        try {
+            if (immediate) {
+                mWindowManager.removeViewImmediate(mFloatingView);
+            } else {
+                mWindowManager.removeView(mFloatingView);
+            }
+        } catch (Exception ignored) {
+            // The window was already gone.
+        }
+        mOverlayAdded = false;
+        if (sOverlayView == mFloatingView) {
+            sOverlayView = null;
+        }
+    }
+
+    /**
+     * Refreshes screen size, screenshot engine size and the capture region
+     * from the current profile selection. Called on every start command so the
+     * home/profile screens can hand us a new profile with a plain
+     * startService() instead of restarting the whole service.
+     */
+    private void refreshScreenGeometry() {
+        if (mWindowManager != null) {
+            Display display = mWindowManager.getDefaultDisplay();
+            Point size = new Point();
+            display.getSize(size);
+            width = size.x;
+            height = size.y;
+        }
+        if (screenshotter != null) {
+            screenshotter.setSize(width, height);
+        }
+        // Region of the selected profile; X2/Y2 == 0 means "no profile" -> full screen.
+        coordinate[0] = (int) Math.ceil((double) Points.X1);
+        coordinate[1] = (int) Math.ceil((double) Points.Y1);
+        coordinate[2] = (int) Math.ceil((double) Points.X2);
+        coordinate[3] = (int) Math.ceil((double) Points.Y2);
     }
 
     private final SharedPreferences.OnSharedPreferenceChangeListener sizeListener =
@@ -201,6 +317,7 @@ public class Floating extends Service {
         super.onCreate();
         android.os.Process.setThreadPriority(THREAD_PRIORITY_BACKGROUND + THREAD_PRIORITY_MORE_FAVORABLE);
 
+        sInstance = this;
         sRunning = true;
         notificationManager = NotificationManagerCompat.from(this);
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -230,28 +347,34 @@ public class Floating extends Service {
         params.y = 100;
         applyButtonSize(PreferenceManager.getDefaultSharedPreferences(this));
 
-        if (mWindowManager != null) {
-            mWindowManager.addView(mFloatingView, params);
-        }
+        addOverlayView();
         PreferenceManager.getDefaultSharedPreferences(this)
                 .registerOnSharedPreferenceChangeListener(sizeListener);
 
-        Display display = mWindowManager.getDefaultDisplay();
-        Point size = new Point();
-        display.getSize(size);
-        width = size.x;
-        height = size.y;
-
         screenshotter = new Screenshotter(getApplicationContext());
-        screenshotter.setSize(width, height);
-
-        // Region of the selected profile; X2/Y2 == 0 means "no profile" -> full screen.
-        coordinate[0] = (int) Math.ceil((double) Points.X1);
-        coordinate[1] = (int) Math.ceil((double) Points.Y1);
-        coordinate[2] = (int) Math.ceil((double) Points.X2);
-        coordinate[3] = (int) Math.ceil((double) Points.Y2);
+        refreshScreenGeometry();
 
         setupDragAndTap();
+
+        // Recovery path when Android or the user ends the screen-capture
+        // session while we are alive (quick settings "stop casting",
+        // permission revocation, ...). Never keep a nonfunctional icon on
+        // screen: tell the user and stop ourselves; the home screen will
+        // offer START SCREENSHOT again which requests a fresh consent.
+        MediaProjectionHelper.setSessionListener(new MediaProjectionHelper.SessionListener() {
+            @Override
+            public void onSessionEnded() {
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (isAlive()) {
+                            showToast("Screen capture was stopped, tap START SCREENSHOT again");
+                            stopSelf();
+                        }
+                    }
+                });
+            }
+        });
     }
 
     /**
@@ -333,8 +456,14 @@ public class Floating extends Service {
 
     private void startCapture() {
         if (MediaProjectionHelper.screenshotPermission == null) {
+            // The consent token is gone (fresh process or revoked session).
+            // A button that can never capture must not stay on the screen:
+            // stop the service, the home screen shows START SCREENSHOT again
+            // and tapping it requests a fresh permission.
             mPendingCaptures = 0;
+            capturing = false;
             showToast("Screen capture permission missing, tap START SCREENSHOT again");
+            stopSelf();
             return;
         }
         capturing = true;
@@ -348,18 +477,25 @@ public class Floating extends Service {
                 @Override
                 public void onScreenshot(final Bitmap bitmap) {
                     // Runs on the main thread, exactly once per accepted tap.
-                    if (!sRunning) {
+                    if (!isAlive()) {
                         // The service was stopped (notification or home screen
                         // toggle) while this capture was in flight.
                         return;
                     }
                     showIconAfterCapture();
                     if (bitmap == null) {
-                        // Capture failed, for example because the capture
-                        // permission was revoked.
+                        // Capture failed. If the capture session itself is gone
+                        // (consent revoked / projection stopped) the button
+                        // cannot work any more: remove it instead of leaving a
+                        // dead icon on screen.
                         mPendingCaptures = 0;
                         capturing = false;
-                        showToast("Screenshot failed, tap START SCREENSHOT again");
+                        if (MediaProjectionHelper.screenshotPermission == null) {
+                            showToast("Screen capture permission missing, tap START SCREENSHOT again");
+                            stopSelf();
+                        } else {
+                            showToast("Screenshot failed, please try again");
+                        }
                         return;
                     }
                     saveExecutor.execute(new Runnable() {
@@ -400,10 +536,14 @@ public class Floating extends Service {
             Logger.logException(e);
             mPendingCaptures = 0;
             capturing = false;
-            if (sRunning) {
+            if (MediaProjectionHelper.screenshotPermission == null) {
+                // Session is gone for good: remove the dead button.
+                showToast("Screen capture permission missing, tap START SCREENSHOT again");
+                stopSelf();
+            } else {
                 showIconAfterCapture();
+                showToast("Screenshot failed, please try again");
             }
-            showToast("Screenshot failed, tap START SCREENSHOT again");
         }
     }
 
@@ -428,11 +568,11 @@ public class Floating extends Service {
                     ? R.drawable.bg_floating_button_saved
                     : R.drawable.bg_floating_button);
         }
-        if (!mIconHidden && mWindowManager != null && mFloatingView != null
-                && mFloatingView.isAttachedToWindow()) {
-            // removeViewImmediate guarantees the window is gone before this call
-            // returns, i.e. before the virtual display mirrors the screen.
-            mWindowManager.removeViewImmediate(mFloatingView);
+        if (!mIconHidden) {
+            // removeOverlayView(true) uses removeViewImmediate, which guarantees
+            // the window is gone before this call returns, i.e. before the
+            // virtual display starts mirroring the screen.
+            removeOverlayView(true);
             mIconHidden = true;
         }
     }
@@ -444,9 +584,8 @@ public class Floating extends Service {
      * (see the save task in {@link #startCapture()}).
      */
     private void showIconAfterCapture() {
-        if (mIconHidden && sRunning && mWindowManager != null && mFloatingView != null
-                && !mFloatingView.isAttachedToWindow()) {
-            mWindowManager.addView(mFloatingView, params);
+        if (mIconHidden && isAlive()) {
+            addOverlayView();
             mIconHidden = false;
         }
     }
@@ -454,12 +593,12 @@ public class Floating extends Service {
     /**
      * Confirmation played after a screenshot was really written to storage: the
      * red button turns green with a white checkmark and a quick pop (~340ms),
-     * then the camera returns on a red button whose border stays green for
-     * ~1.75s before the white ready border comes back. The animation never
-     * blocks taps; a new capture simply cancels and restarts it.
+     * then the camera returns on a red button whose border AND camera icon stay
+     * green for ~1.75s before the white ready state comes back. The animation
+     * never blocks taps; a new capture simply cancels and restarts it.
      */
     private void playCaptureFeedback() {
-        if (!sRunning || mIconView == null) {
+        if (!isAlive() || mIconView == null) {
             return;
         }
         mainHandler.removeCallbacks(mCheckmarkEndRunnable);
@@ -533,8 +672,12 @@ public class Floating extends Service {
                 * getResources().getDisplayMetrics().density + 0.5f);
         params.width = sizeInPx;
         params.height = sizeInPx;
-        if (mFloatingView != null && mFloatingView.isAttachedToWindow()) {
-            mWindowManager.updateViewLayout(mFloatingView, params);
+        if (mOverlayAdded && mFloatingView != null && mWindowManager != null) {
+            try {
+                mWindowManager.updateViewLayout(mFloatingView, params);
+            } catch (IllegalArgumentException ignored) {
+                // The window was removed in the meantime; nothing to update.
+            }
         }
     }
 
@@ -545,23 +688,44 @@ public class Floating extends Service {
             action = intent.getAction();
         if (action != null && action.equalsIgnoreCase("stop")) {
             stopSelf();
+            return START_NOT_STICKY;
         }
-        return super.onStartCommand(intent, flags, startId);
+        // A start command also refreshes the screen size and the capture
+        // region, so the home/profile screens can hand us the newest profile
+        // with a plain startService() instead of stop+start (that churn used
+        // to race destruction against creation and could leak an icon).
+        refreshScreenGeometry();
+        // NOT sticky on purpose: if Android ever restarts us on its own, the
+        // screen capture consent (a static of our process) is gone and the
+        // button would come back unable to capture - exactly the "permission
+        // missing" state. Staying stopped is safe: the home screen offers
+        // START SCREENSHOT, which requests a fresh consent.
+        return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        sRunning = false;
+        // Only this instance may clear the shared state: if a newer instance
+        // already exists (fast stop+start), the old instance's delayed
+        // destruction must not mark the new one as stopped.
+        if (sInstance == this) {
+            sInstance = null;
+            sRunning = false;
+        }
+        MediaProjectionHelper.setSessionListener(null);
         saveExecutor.shutdown();
         mainHandler.removeCallbacks(mCheckmarkEndRunnable);
         mainHandler.removeCallbacks(mBorderResetRunnable);
         PreferenceManager.getDefaultSharedPreferences(this)
                 .unregisterOnSharedPreferenceChangeListener(sizeListener);
-        if (mFloatingView != null && mWindowManager != null && mFloatingView.isAttachedToWindow()) {
-            mWindowManager.removeView(mFloatingView);
-        }
-        if (notificationManager != null) notificationManager.cancelAll();
+        // Always attempt to remove the window. The old guard
+        // (isAttachedToWindow()) skipped removal right after addView(), before
+        // the attach was dispatched - that is how an icon could stay stuck on
+        // screen with the service already dead.
+        removeOverlayView(false);
+        stopForeground(true);
+        MediaProjectionHelper.stopMediaProjection();
     }
 
     private void notification() {
@@ -578,6 +742,10 @@ public class Floating extends Service {
                 .setOngoing(true).setAutoCancel(true)
                 .addAction(android.R.drawable.ic_menu_more, "Open Trivia Capture", pendingIntent);
 
-        notificationManager.notify(1234, mBuilder.build());
+        // Run as a foreground service: MainActivity closes itself right after
+        // starting us, and a plain background service gets killed by the
+        // system while the app is cached - mid-capture. That is exactly how
+        // the icon used to stop working and leave state behind.
+        startForeground(NOTIFICATION_ID, mBuilder.build());
     }
 }

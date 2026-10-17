@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Green camera icon, shown on the floating button during the confirmed
+     phase (same window as the green border) after a screenshot was saved. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#6FA82B"
+        android:pathData="M4,5 H20 C21.1,5 22,5.9 22,7 V17 C22,18.1 21.1,19 20,19 H4 C2.9,19 2,18.1 2,17 V7 C2,5.9 2.9,5 4,5 Z M8,3 H16 L18,6 H6 Z M15.6,12 A3.6,3.6 0,1 0 8.4,12 A3.6,3.6 0,1 0 15.6,12 Z" />
+</vector>

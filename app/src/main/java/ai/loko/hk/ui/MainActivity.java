@@ -35,7 +35,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.text.TextUtils;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -74,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_CODE_STORAGE_PERMISSION = 153;
     private Intent mFloatingIntent;
-    private TextView mOverlayPermmissionBtn, mAccessibilityPermissionBtn;
+    private TextView mOverlayPermmissionBtn;
     private View mStartScreenshotBtn, mMyNotebooksBtn, mSettingsBtn, mSelectProfilesBtn;
     private TextView mStartScreenshotTitle, mStartScreenshotSubtitle;
     private MediaProjectionManager mMediaProjectionManager;
@@ -91,7 +90,6 @@ public class MainActivity extends AppCompatActivity {
         checkForUpdates();
 
         mOverlayPermmissionBtn = findViewById(R.id.olpermission5);
-        mAccessibilityPermissionBtn = findViewById(R.id.accpermission5);
         mStartScreenshotBtn = findViewById(R.id.start_screenshot);
         mStartScreenshotTitle = findViewById(R.id.start_screenshot_title);
         mStartScreenshotSubtitle = findViewById(R.id.start_screenshot_subtitle);
@@ -172,13 +170,6 @@ public class MainActivity extends AppCompatActivity {
                 giveOverlayPermission();
             }
         });
-
-        mAccessibilityPermissionBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                giveAccessibilityPermission();
-            }
-        });
     }
 
     /**
@@ -256,35 +247,6 @@ public class MainActivity extends AppCompatActivity {
         }));
     }
 
-    public boolean isAccessibilityEnabled() {
-        int accessibilityEnabled = 0;
-        final String ACCESSIBILITY_SERVICE = "ai.loko.hk.ui/ai.loko.hk.ui.Accessibility";
-        try {
-            accessibilityEnabled = Settings.Secure.getInt(this.getContentResolver(), android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
-        } catch (Settings.SettingNotFoundException e) {
-            //setting not found so your phone is not supported
-        }
-        TextUtils.SimpleStringSplitter mStringColonSplitter = new TextUtils.SimpleStringSplitter(':');
-        if (accessibilityEnabled == 1) {
-            String settingValue = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-            if (settingValue != null) {
-                mStringColonSplitter.setString(settingValue);
-                while (mStringColonSplitter.hasNext()) {
-                    String accessabilityService = mStringColonSplitter.next();
-                    if (accessabilityService.equalsIgnoreCase(ACCESSIBILITY_SERVICE)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    private void giveAccessibilityPermission() {
-        startActivity(new Intent("android.settings.ACCESSIBILITY_SETTINGS"));
-
-    }
-
     private boolean canOverdraw() {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this);
     }
@@ -312,8 +274,11 @@ public class MainActivity extends AppCompatActivity {
                 if (resultCode == RESULT_OK && data != null) {
                     MediaProjectionHelper.setMediaProjectionManager(mMediaProjectionManager);
                     MediaProjectionHelper.setScreenshotPermission(data);
-                    // Restart so the overlay always uses the current (full screen) profile.
-                    stopService(mFloatingIntent);
+                    // A plain start is enough: the service refreshes its
+                    // capture region on every start command. Stopping and
+                    // restarting it here used to race the old instance's
+                    // destruction against the new one's creation and could
+                    // leak a second floating icon.
                     startService(mFloatingIntent);
                     updateStartScreenshotButton(true);
                     finish();
@@ -360,11 +325,6 @@ public class MainActivity extends AppCompatActivity {
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             mOverlayPermmissionBtn.setBackgroundResource(R.drawable.bg_pill_green);
-        }
-        if (isAccessibilityEnabled()) {
-            mAccessibilityPermissionBtn.setBackgroundResource(R.drawable.bg_pill_green);
-        } else {
-            mAccessibilityPermissionBtn.setBackgroundResource(R.drawable.bg_pill_red);
         }
     }
 

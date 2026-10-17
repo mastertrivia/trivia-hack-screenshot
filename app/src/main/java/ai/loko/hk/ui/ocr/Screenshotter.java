@@ -70,9 +70,12 @@ public class Screenshotter implements ImageReader.OnImageAvailableListener {
     public void takeScreenshot(final ScreenshotCallback cb) {
         this.cb = cb;
         mImageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 1);
-        if (mMediaProjection == null) {
-            mMediaProjection = MediaProjectionHelper.getMediaProjection(context);
-        }
+        // The projection is owned by MediaProjectionHelper and stays alive for
+        // the whole capture session; each capture only creates a fresh virtual
+        // display on top of it. (Re-acquiring the consent token after stopping
+        // the projection - the old behaviour - is what made captures fail
+        // after a while on newer Android versions.)
+        mMediaProjection = MediaProjectionHelper.getMediaProjection(context);
         if (mMediaProjection == null) {
             Log.e(TAG, "MediaProjection null. Cannot take the screenshot.");
             mImageReader = null;
@@ -169,14 +172,11 @@ public class Screenshotter implements ImageReader.OnImageAvailableListener {
             }
             virtualDisplay = null;
         }
-        if (mMediaProjection != null) {
-            try {
-                mMediaProjection.stop();
-            } catch (Exception e) {
-                Logger.logException(e);
-            }
-            mMediaProjection = null;
-        }
+        // The MediaProjection itself is intentionally NOT stopped here: it
+        // belongs to the capture session and is reused by the next capture.
+        // It is stopped when the service is destroyed, see
+        // MediaProjectionHelper.stopMediaProjection().
+        mMediaProjection = null;
         mImageReader = null;
     }
 

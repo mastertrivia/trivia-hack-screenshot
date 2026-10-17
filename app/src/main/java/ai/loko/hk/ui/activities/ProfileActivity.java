@@ -161,7 +161,13 @@ public class ProfileActivity extends AppCompatActivity implements ListItemSwipeL
 
     private void startScreenshot() {
         if (canOverdraw()) {
-            if (!isServiceRunning(Floating.class)) {
+            if (Floating.isRunning()) {
+                // The floating button is already on screen: just point it at
+                // the newly selected region. The service refreshes its capture
+                // region on every start command, so no new consent and no
+                // service restart is needed (and no second icon can appear).
+                startService(mScreenshotIntent);
+            } else {
                 mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
                 startActivityForResult(mMediaProjectionManager.createScreenCaptureIntent(), Constant.CODE_FOR_SCREEN_CAPTURE);
             }
@@ -218,16 +224,6 @@ public class ProfileActivity extends AppCompatActivity implements ListItemSwipeL
         } else {
             Toast.makeText(this, "You do not need it", Toast.LENGTH_SHORT).show();
         }
-    }
-
-    private boolean isServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private Profile getProfileForView(ProfileEntity profileEntity) {

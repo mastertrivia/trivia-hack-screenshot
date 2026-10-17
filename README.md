@@ -50,7 +50,6 @@ To capture only a region, open **Select Profiles** first, draw the area you want
 | **Storage** (read/write) | Saves screenshots to the shared Pictures folder. |
 | **Screen capture** (`MediaProjection`) | Android's standard consent dialog for capturing the screen; granted once per session. |
 | **Internet** | Used only for crash reporting and the update check. |
-| **Accessibility** | Declared so the accessibility status indicator on the home screen works. The app **does not** read the content of other apps. |
 
 ## Install
 

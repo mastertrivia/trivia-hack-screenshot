@@ -64,21 +64,6 @@
 
             android:enabled="true"
             android:exported="false" />
-        <service
-            android:name="ai.loko.hk.ui.Accessibility"
-            android:enabled="true"
-            android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:process=":service">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibilty" />
-        </service>
-
         <activity
             android:name="ai.loko.hk.ui.activities.SettingsActivity"
             android:label="@string/title_activity_settings" />
