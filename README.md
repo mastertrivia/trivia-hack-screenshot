@@ -27,7 +27,7 @@ No accounts, no ads, no tracking.
 | **Floating capture button** | A small draggable bubble that sits on top of other apps. Tap to capture, drag to move it wherever it is out of the way. |
 | **Capture profiles** | Save a reusable capture region. Draw a box over a screenshot and the floating button will capture only that region — or leave it empty for full-screen capture. |
 | **Full-screen by default** | Out of the box the button captures the entire screen. |
-| **Gallery-ready output** | Screenshots are saved as valid JPEGs in `Pictures/TriviaHacK` and registered with Android's MediaStore, so they appear in the Gallery with normal **Edit**, **Crop** and **Share** actions. |
+| **Gallery-ready output** | Screenshots are saved as valid JPEGs in `Pictures/Trivia Capture` and registered with Android's MediaStore, so they appear in the Gallery with normal **Edit**, **Crop** and **Share** actions. |
 | **Adjustable button size** | Resize the floating button from the Settings screen. |
 | **Save toggle** | Turn screenshot saving on or off; the button still gives visual feedback either way. |
 | **Clear save feedback** | The button turns green with a checkmark only after the screenshot is actually written and published. |
@@ -35,10 +35,10 @@ No accounts, no ads, no tracking.
 
 ## How it works
 
-1. Grant the **overlay** permission so the floating button can appear over other apps.
+1. Grant the **overlay** permission so the floating button can appear over other apps. Optionally grant **accessibility** from the home-screen pill (can be hidden in Settings).
 2. Press **START SCREENSHOT** and accept Android's screen-capture consent dialog.
 3. A small button appears on screen. Tap it to capture, drag it to reposition.
-4. The screenshot is saved to `Pictures/TriviaHacK` and shows up in your Gallery.
+4. The screenshot is saved to `Pictures/Trivia Capture` and shows up in your Gallery.
 
 To capture only a region, open **Select Profiles** first, draw the area you want, name it, and every capture will use it. Leave the profile empty for full-screen shots.
 
@@ -47,6 +47,7 @@ To capture only a region, open **Select Profiles** first, draw the area you want
 | Permission | Why it is needed |
 |---|---|
 | **Overlay** (`SYSTEM_ALERT_WINDOW`) | Draws the floating capture button over other apps. |
+| **Accessibility** | Optional home-screen indicator; the declared service does not read other apps. Hide or show the pill in Settings. |
 | **Storage** (read/write) | Saves screenshots to the shared Pictures folder. |
 | **Screen capture** (`MediaProjection`) | Android's standard consent dialog for capturing the screen; granted once per session. |
 | **Internet** | Used only for crash reporting and the update check. |
@@ -57,7 +58,7 @@ This fork publishes build artifacts from its CI rather than the upstream release
 
 1. Open the [**Actions**](../../actions) tab.
 2. Select the newest green **Build APK** run.
-3. Download the `trivia-capture-debug-apk` artifact and install the `.apk` on your device.
+3. Download the `trivia-capture-apk` artifact and install the `.apk` on your device.
 
 Every artifact is signed with the same certificate, so newer builds install as normal updates over older ones (no uninstall, no data loss).
 

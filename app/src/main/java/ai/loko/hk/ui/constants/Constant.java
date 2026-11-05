@@ -47,6 +47,6 @@ public class Constant {
      * the gallery and file manager. Crash reports stay in the private errors
      * folder below.
      */
-    public static final String PATH = Environment.getExternalStorageDirectory() + "/Pictures/TriviaHacK/";
-    public static final String PATH_TO_ERRORS = Environment.getExternalStorageDirectory() + "/TriviaHacK/errors";
+    public static final String PATH = Environment.getExternalStorageDirectory() + "/Pictures/Trivia Capture/";
+    public static final String PATH_TO_ERRORS = Environment.getExternalStorageDirectory() + "/Trivia Capture/errors";
 }

@@ -46,4 +46,12 @@
         android:summary="64 dp"
         android:title="@string/floating_button_size_title" />
 
+    <PreferenceCategory android:title="Home Screen" />
+
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="@string/show_accessibility_permission_on_home_key"
+        android:summary="@string/show_accessibility_permission_on_home_details"
+        android:title="@string/show_accessibility_permission_on_home_title" />
+
 </PreferenceScreen>

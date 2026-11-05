@@ -31,7 +31,10 @@
     <string name="title_activity_profile">Select Profile</string>
     <string name="title_activity_crop">Crop Image</string>
 
+    <string name="accessibility_desc">Trivia Capture keeps this accessibility service declared so that the accessibility permission indicator on the home screen can work. Trivia Capture does not read the screen content of other apps.\n</string>
+
     <!-- Home screen -->
+    <string name="perm_accessibility">ACCESSIBILITY</string>
     <string name="perm_overlay">OVERLAY</string>
     <string name="start_screenshot">START SCREENSHOT</string>
     <string name="start_screenshot_hint">(Default: Full Screen)</string>
@@ -47,7 +50,10 @@
     <!-- The key value is kept identical so existing installs keep their setting. -->
     <string name="save_image_and_file_to_storage_key">save_images_and_file_to_storage_key</string>
     <string name="image_storage_titile">Save screenshots</string>
-    <string name="image_storage_details">Screenshots taken with the floating button are saved to the TriviaHacK folder</string>
+    <string name="image_storage_details">Screenshots taken with the floating button are saved to the Trivia Capture folder</string>
     <string name="floating_button_size_title">Floating button size</string>
+    <string name="show_accessibility_permission_on_home_key">show_accessibility_permission_on_home_key</string>
+    <string name="show_accessibility_permission_on_home_title">Show accessibility permission on home screen</string>
+    <string name="show_accessibility_permission_on_home_details">Show the ACCESSIBILITY button next to OVERLAY</string>
 
 </resources>

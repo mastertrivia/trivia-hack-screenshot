@@ -55,7 +55,7 @@ android {
         variant.outputs.all {
             def date = new Date()
             def formattedDate = date.format('yyyyMMddHHmmss')
-            outputFileName = "Trivia-Capture-${variant.name}-${variant.versionName}-${formattedDate}.apk"
+            outputFileName = "Trivia-Capture-${variant.versionName}-${formattedDate}.apk"
         }
     }
     packagingOptions {
@@ -91,7 +91,6 @@ android {
             pseudoLocalesEnabled true
         }
         debug {
-            versionNameSuffix "-debug"
             debuggable true
             jniDebuggable true
             renderscriptDebuggable true

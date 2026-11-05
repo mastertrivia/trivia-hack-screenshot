@@ -48,7 +48,7 @@ public class Utils {
     private static final String TAG = "Utils";
 
     /** Folder inside the shared Pictures directory that keeps all screenshots. */
-    private static final String SCREENSHOT_DIRECTORY = "TriviaHacK";
+    private static final String SCREENSHOT_DIRECTORY = "Trivia Capture";
     private static final String MIME_TYPE_JPEG = "image/jpeg";
     private static final int JPEG_QUALITY = 60;
 
@@ -57,14 +57,14 @@ public class Utils {
 
     /**
      * Saves a captured screenshot to the shared Pictures folder
-     * (/Pictures/TriviaHacK) and makes sure it is registered with the
+     * (/Pictures/Trivia Capture) and makes sure it is registered with the
      * MediaStore so it shows up normally in the gallery (including the gallery
      * edit/crop/share actions, which require a real MediaStore row).
      * <p>
      * The correct API depends on the Android version:
      * <ul>
      *     <li>Android 10 (API 29) and newer: the image is inserted into
-     *     MediaStore with {@code RELATIVE_PATH = Pictures/TriviaHacK} and
+     *     MediaStore with {@code RELATIVE_PATH = Pictures/Trivia Capture} and
      *     written while {@code IS_PENDING = 1}. The row is only published
      *     ({@code IS_PENDING = 0}) after the JPEG was encoded and the stream was
      *     closed successfully; an incomplete row is deleted again.</li>

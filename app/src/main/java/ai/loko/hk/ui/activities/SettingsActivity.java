@@ -46,7 +46,8 @@ import ui.R;
 /**
  * Settings screen. All search engine and OCR related settings (and the tesseract
  * training data downloader) were removed together with that functionality. What is
- * left is the Logs/Debug screenshot saving switch and the floating button size slider.
+ * left is the Logs/Debug screenshot saving switch, the floating button size slider
+ * and the home-screen accessibility permission toggle.
  */
 public class SettingsActivity extends AppCompatPreferenceActivity {
 

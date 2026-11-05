@@ -34,10 +34,13 @@ import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -73,7 +76,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_CODE_STORAGE_PERMISSION = 153;
     private Intent mFloatingIntent;
-    private TextView mOverlayPermmissionBtn;
+    private TextView mOverlayPermmissionBtn, mAccessibilityPermissionBtn;
     private View mStartScreenshotBtn, mMyNotebooksBtn, mSettingsBtn, mSelectProfilesBtn;
     private TextView mStartScreenshotTitle, mStartScreenshotSubtitle;
     private MediaProjectionManager mMediaProjectionManager;
@@ -90,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
         checkForUpdates();
 
         mOverlayPermmissionBtn = findViewById(R.id.olpermission5);
+        mAccessibilityPermissionBtn = findViewById(R.id.accpermission5);
         mStartScreenshotBtn = findViewById(R.id.start_screenshot);
         mStartScreenshotTitle = findViewById(R.id.start_screenshot_title);
         mStartScreenshotSubtitle = findViewById(R.id.start_screenshot_subtitle);
@@ -170,6 +174,60 @@ public class MainActivity extends AppCompatActivity {
                 giveOverlayPermission();
             }
         });
+
+        mAccessibilityPermissionBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                giveAccessibilityPermission();
+            }
+        });
+    }
+
+    public boolean isAccessibilityEnabled() {
+        int accessibilityEnabled = 0;
+        final String ACCESSIBILITY_SERVICE = "ai.loko.hk.ui/ai.loko.hk.ui.Accessibility";
+        try {
+            accessibilityEnabled = Settings.Secure.getInt(this.getContentResolver(), android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
+        } catch (Settings.SettingNotFoundException e) {
+            //setting not found so your phone is not supported
+        }
+        TextUtils.SimpleStringSplitter mStringColonSplitter = new TextUtils.SimpleStringSplitter(':');
+        if (accessibilityEnabled == 1) {
+            String settingValue = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (settingValue != null) {
+                mStringColonSplitter.setString(settingValue);
+                while (mStringColonSplitter.hasNext()) {
+                    String accessabilityService = mStringColonSplitter.next();
+                    if (accessabilityService.equalsIgnoreCase(ACCESSIBILITY_SERVICE)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private void giveAccessibilityPermission() {
+        startActivity(new Intent("android.settings.ACCESSIBILITY_SETTINGS"));
+    }
+
+    private boolean showAccessibilityPermissionOnHome() {
+        return PreferenceManager.getDefaultSharedPreferences(this)
+                .getBoolean(getString(R.string.show_accessibility_permission_on_home_key), true);
+    }
+
+    private void applyAccessibilityButtonVisibility() {
+        boolean show = showAccessibilityPermissionOnHome();
+        mAccessibilityPermissionBtn.setVisibility(show ? View.VISIBLE : View.GONE);
+        LinearLayout.LayoutParams overlayParams =
+                (LinearLayout.LayoutParams) mOverlayPermmissionBtn.getLayoutParams();
+        int gap = (int) (6 * getResources().getDisplayMetrics().density + 0.5f);
+        overlayParams.setMarginStart(show ? gap : 0);
+        mOverlayPermmissionBtn.setLayoutParams(overlayParams);
+        LinearLayout.LayoutParams accessibilityParams =
+                (LinearLayout.LayoutParams) mAccessibilityPermissionBtn.getLayoutParams();
+        accessibilityParams.setMarginEnd(show ? gap : 0);
+        mAccessibilityPermissionBtn.setLayoutParams(accessibilityParams);
     }
 
     /**
@@ -227,22 +285,22 @@ public class MainActivity extends AppCompatActivity {
             }
         }));
 
-        rightBmb.addBuilder(new HamButton.Builder().normalImageRes(R.drawable.ic_help_white_24dp).subNormalText("If you are getting any error than get online help").normalText("Help Me").listener(new OnBMClickListener() {
+        rightBmb.addBuilder(new HamButton.Builder().normalImageRes(R.drawable.ic_help_white_24dp).subNormalText("Report a problem or ask a question on GitHub").normalText("Help Me").listener(new OnBMClickListener() {
             @Override
             public void onBoomButtonClick(int index) {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/SubhamTyagi/loco-answers/HELP.md")));
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/mastertrivia/trivia-hack-screenshot/issues")));
             }
         }));
-        rightBmb.addBuilder(new HamButton.Builder().normalImageRes(R.drawable.ic_info_white_24dp).normalText("About").subNormalText("About me").listener(new OnBMClickListener() {
+        rightBmb.addBuilder(new HamButton.Builder().normalImageRes(R.drawable.ic_info_white_24dp).normalText("About").subNormalText("What Trivia Capture is and who built it").listener(new OnBMClickListener() {
             @Override
             public void onBoomButtonClick(int index) {
                 about();
             }
         }));
-        rightBmb.addBuilder(new HamButton.Builder().normalImageRes(R.drawable.ic_directions_run_black_24dp).subNormalText("Click here to go to github release page").normalText("Update.").listener(new OnBMClickListener() {
+        rightBmb.addBuilder(new HamButton.Builder().normalImageRes(R.drawable.ic_directions_run_black_24dp).subNormalText("Open the Trivia Capture GitHub page").normalText("Update").listener(new OnBMClickListener() {
             @Override
             public void onBoomButtonClick(int index) {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/SubhamTyagi/loco-answers/releases/")));
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/mastertrivia/trivia-hack-screenshot")));
             }
         }));
     }
@@ -294,6 +352,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
+        applyAccessibilityButtonVisibility();
         setButtonsColorsAndText();
         // Reflect the real state of the floating service: it can also be started
         // from the profile screen and stopped from its notification.
@@ -326,12 +385,17 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             mOverlayPermmissionBtn.setBackgroundResource(R.drawable.bg_pill_green);
         }
+        if (isAccessibilityEnabled()) {
+            mAccessibilityPermissionBtn.setBackgroundResource(R.drawable.bg_pill_green);
+        } else {
+            mAccessibilityPermissionBtn.setBackgroundResource(R.drawable.bg_pill_red);
+        }
     }
 
     private void about() {
         new SweetAlertDialog(this, SweetAlertDialog.NORMAL_TYPE)
-                .setTitleText("Trivia Capture VERSION " + BuildConfig.VERSION_NAME)
-                .setContentText("This app is free and open source app hosted on GitHub")
+                .setTitleText("Trivia Capture " + BuildConfig.VERSION_NAME)
+                .setContentText("Built by Prateek Singh.\n\nCapture any screen without leaving the app you are in. A small floating button sits on top of other apps: tap to screenshot, drag to move it. Save a capture region once and every shot uses it, or leave it empty for full screen. Screenshots land in your Gallery, ready to edit, crop and share.\n\nFree and open source.")
                 .setConfirmText("Ok")
                 .setConfirmClickListener(new SweetAlertDialog.OnSweetClickListener() {
                     @Override
@@ -339,8 +403,6 @@ public class MainActivity extends AppCompatActivity {
                         sweetAlertDialog.dismissWithAnimation();
                     }
                 }).show();
-
-
     }
 
     @Override
@@ -348,7 +410,7 @@ public class MainActivity extends AppCompatActivity {
 
         if (requestCode == REQUEST_CODE_STORAGE_PERMISSION) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Screenshots go to /Pictures/TriviaHacK; no .nomedia file is
+                // Screenshots go to /Pictures/Trivia Capture; no .nomedia file is
                 // created there on purpose, so the gallery can show them.
                 new File(Constant.PATH).mkdirs();
                 new File(Constant.PATH_TO_ERRORS).mkdirs();
