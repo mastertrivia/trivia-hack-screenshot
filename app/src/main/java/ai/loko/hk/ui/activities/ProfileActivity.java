@@ -59,8 +59,10 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
+import ai.loko.hk.ui.Accessibility;
 import ai.loko.hk.ui.adapters.ProfileAdapter;
 import ai.loko.hk.ui.constants.Constant;
+import ai.loko.hk.ui.ocr.CapturePath;
 import ai.loko.hk.ui.db.AppDatabase;
 import ai.loko.hk.ui.db.ProfileEntity;
 import ai.loko.hk.ui.listeners.ListItemSwipeListener;
@@ -167,6 +169,10 @@ public class ProfileActivity extends AppCompatActivity implements ListItemSwipeL
                 // region on every start command, so no new consent and no
                 // service restart is needed (and no second icon can appear).
                 startService(mScreenshotIntent);
+            } else if (CapturePath.canStartWithoutMediaProjection(
+                    Build.VERSION.SDK_INT, Accessibility.isEnabled(this))) {
+                startService(mScreenshotIntent);
+                finish();
             } else {
                 mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
                 startActivityForResult(mMediaProjectionManager.createScreenCaptureIntent(), Constant.CODE_FOR_SCREEN_CAPTURE);

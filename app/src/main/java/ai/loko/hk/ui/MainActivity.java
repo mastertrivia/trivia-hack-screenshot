@@ -36,7 +36,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
-import android.text.TextUtils;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -64,6 +63,7 @@ import java.io.File;
 import ai.loko.hk.ui.activities.ProfileActivity;
 import ai.loko.hk.ui.activities.SettingsActivity;
 import ai.loko.hk.ui.constants.Constant;
+import ai.loko.hk.ui.ocr.CapturePath;
 import ai.loko.hk.ui.ocr.MediaProjectionHelper;
 import ai.loko.hk.ui.ocr.Points;
 import ai.loko.hk.ui.services.Floating;
@@ -184,27 +184,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public boolean isAccessibilityEnabled() {
-        int accessibilityEnabled = 0;
-        final String ACCESSIBILITY_SERVICE = "ai.loko.hk.ui/ai.loko.hk.ui.Accessibility";
-        try {
-            accessibilityEnabled = Settings.Secure.getInt(this.getContentResolver(), android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
-        } catch (Settings.SettingNotFoundException e) {
-            //setting not found so your phone is not supported
-        }
-        TextUtils.SimpleStringSplitter mStringColonSplitter = new TextUtils.SimpleStringSplitter(':');
-        if (accessibilityEnabled == 1) {
-            String settingValue = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-            if (settingValue != null) {
-                mStringColonSplitter.setString(settingValue);
-                while (mStringColonSplitter.hasNext()) {
-                    String accessabilityService = mStringColonSplitter.next();
-                    if (accessabilityService.equalsIgnoreCase(ACCESSIBILITY_SERVICE)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+        return Accessibility.isEnabled(this);
     }
 
     private void giveAccessibilityPermission() {
@@ -252,6 +232,14 @@ public class MainActivity extends AppCompatActivity {
         Points.Y1 = 0;
         Points.X2 = size.x;
         Points.Y2 = size.y;
+
+        if (CapturePath.canStartWithoutMediaProjection(
+                Build.VERSION.SDK_INT, isAccessibilityEnabled())) {
+            startService(mFloatingIntent);
+            updateStartScreenshotButton(true);
+            finish();
+            return;
+        }
 
         mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
         startActivityForResult(mMediaProjectionManager.createScreenCaptureIntent(),

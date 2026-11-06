@@ -58,8 +58,11 @@ import androidx.core.app.NotificationManagerCompat;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ai.loko.hk.ui.Accessibility;
 import ai.loko.hk.ui.MainActivity;
 import ai.loko.hk.ui.constants.Constant;
+import ai.loko.hk.ui.ocr.CapturePath;
+import ai.loko.hk.ui.ocr.CropRegion;
 import ai.loko.hk.ui.ocr.MediaProjectionHelper;
 import ai.loko.hk.ui.ocr.Points;
 import ai.loko.hk.ui.ocr.Screenshotter;
@@ -211,6 +214,10 @@ public class Floating extends Service {
     /** Whether this exact service instance is still the alive one. */
     private boolean isAlive() {
         return sInstance == this;
+    }
+
+    private boolean accessibilityCaptureAvailable() {
+        return Accessibility.isConnected() || Accessibility.isEnabled(this);
     }
 
     /**
@@ -367,10 +374,14 @@ public class Floating extends Service {
                 mainHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        if (isAlive()) {
-                            showToast("Screen capture was stopped, tap START SCREENSHOT again");
-                            stopSelf();
+                        if (!isAlive()) {
+                            return;
                         }
+                        if (accessibilityCaptureAvailable()) {
+                            return;
+                        }
+                        showToast("Screen capture was stopped, tap START SCREENSHOT again");
+                        stopSelf();
                     }
                 });
             }
@@ -455,11 +466,14 @@ public class Floating extends Service {
     }
 
     private void startCapture() {
-        if (MediaProjectionHelper.screenshotPermission == null) {
-            // The consent token is gone (fresh process or revoked session).
-            // A button that can never capture must not stay on the screen:
-            // stop the service, the home screen shows START SCREENSHOT again
-            // and tapping it requests a fresh permission.
+        int path = CapturePath.choose(
+                Build.VERSION.SDK_INT,
+                accessibilityCaptureAvailable(),
+                MediaProjectionHelper.screenshotPermission != null);
+        if (path == CapturePath.NONE) {
+            // Nothing can capture: the accessibility service is not connected
+            // and there is no MediaProjection consent. A button that can never
+            // capture must not stay on the screen.
             mPendingCaptures = 0;
             capturing = false;
             showToast("Screen capture permission missing, tap START SCREENSHOT again");
@@ -467,83 +481,91 @@ public class Floating extends Service {
             return;
         }
         capturing = true;
-        // Remove the floating window from the screen before the virtual display
-        // starts mirroring so the icon can never end up in the screenshot. The
-        // window (with its position and size) is added back the moment the frame
+        // Remove the floating window from the screen before the frame is
+        // taken so the icon can never end up in the screenshot. The window
+        // (with its position and size) is added back the moment the frame
         // has been acquired.
         hideIconForCapture();
-        try {
-            screenshotter.takeScreenshot(new Screenshotter.ScreenshotCallback() {
+        Screenshotter.ScreenshotCallback callback = new Screenshotter.ScreenshotCallback() {
+            @Override
+            public void onScreenshot(final Bitmap bitmap) {
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        handleCaptureResult(bitmap);
+                    }
+                });
+            }
+        };
+        if (path == CapturePath.ACCESSIBILITY) {
+            mainHandler.postDelayed(new Runnable() {
                 @Override
-                public void onScreenshot(final Bitmap bitmap) {
-                    // Runs on the main thread, exactly once per accepted tap.
-                    if (!isAlive()) {
-                        // The service was stopped (notification or home screen
-                        // toggle) while this capture was in flight.
-                        return;
-                    }
-                    showIconAfterCapture();
-                    if (bitmap == null) {
-                        // Capture failed. If the capture session itself is gone
-                        // (consent revoked / projection stopped) the button
-                        // cannot work any more: remove it instead of leaving a
-                        // dead icon on screen.
-                        mPendingCaptures = 0;
-                        capturing = false;
-                        if (MediaProjectionHelper.screenshotPermission == null) {
-                            showToast("Screen capture permission missing, tap START SCREENSHOT again");
-                            stopSelf();
-                        } else {
-                            showToast("Screenshot failed, please try again");
-                        }
-                        return;
-                    }
-                    saveExecutor.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (!isScreenshotSavingEnabled()) {
-                                // Nothing is written, so there is nothing to
-                                // confirm: no checkmark without a saved file.
-                                showToast("Screenshot taken, saving is disabled in Settings");
-                                return;
-                            }
-                            if (Utils.writeToStorage(getApplicationContext(), cropToProfileRegion(bitmap))) {
-                                // Only a really saved screenshot gets the green
-                                // checkmark confirmation.
-                                mainHandler.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        playCaptureFeedback();
-                                    }
-                                });
-                            } else {
-                                showToast("Screenshot could not be saved");
-                            }
-                        }
-                    });
-                    // Continue with the next queued tap immediately, without waiting
-                    // for the save to finish (saving runs on its own thread).
-                    if (mPendingCaptures > 0) {
-                        mPendingCaptures--;
-                        startCapture();
-                    } else {
-                        capturing = false;
-                    }
+                public void run() {
+                    Accessibility.captureScreen(callback);
                 }
-            });
+            }, 80);
+            return;
+        }
+        takeMediaProjectionScreenshot(callback);
+    }
+
+    private void takeMediaProjectionScreenshot(Screenshotter.ScreenshotCallback callback) {
+        try {
+            screenshotter.takeScreenshot(callback);
         } catch (Exception e) {
-            // Capture failed, for example because the capture permission was revoked.
             Logger.logException(e);
+            callback.onScreenshot(null);
+        }
+    }
+
+    /**
+     * Handles the result of one accepted tap, from either the accessibility
+     * engine or MediaProjection. Runs on the main thread.
+     */
+    private void handleCaptureResult(final Bitmap bitmap) {
+        if (!isAlive()) {
+            return;
+        }
+        showIconAfterCapture();
+        if (bitmap == null) {
             mPendingCaptures = 0;
             capturing = false;
-            if (MediaProjectionHelper.screenshotPermission == null) {
-                // Session is gone for good: remove the dead button.
+            int retryPath = CapturePath.choose(
+                    Build.VERSION.SDK_INT,
+                    accessibilityCaptureAvailable(),
+                    MediaProjectionHelper.screenshotPermission != null);
+            if (retryPath == CapturePath.NONE) {
                 showToast("Screen capture permission missing, tap START SCREENSHOT again");
                 stopSelf();
             } else {
-                showIconAfterCapture();
                 showToast("Screenshot failed, please try again");
             }
+            return;
+        }
+        saveExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                if (!isScreenshotSavingEnabled()) {
+                    showToast("Screenshot taken, saving is disabled in Settings");
+                    return;
+                }
+                if (Utils.writeToStorage(getApplicationContext(), cropToProfileRegion(bitmap))) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            playCaptureFeedback();
+                        }
+                    });
+                } else {
+                    showToast("Screenshot could not be saved");
+                }
+            }
+        });
+        if (mPendingCaptures > 0) {
+            mPendingCaptures--;
+            startCapture();
+        } else {
+            capturing = false;
         }
     }
 
@@ -643,19 +665,13 @@ public class Floating extends Service {
      * screen when no profile region was set (full screen capture).
      */
     private Bitmap cropToProfileRegion(Bitmap bitmap) {
-        int x1 = coordinate[0];
-        int y1 = coordinate[1];
-        int x2 = coordinate[2];
-        int y2 = coordinate[3];
-        if (x2 == 0 || y2 == 0) {
-            x2 = width;
-            y2 = height;
-        }
-        if (x1 < 0 || y1 < 0 || x2 <= x1 || y2 <= y1
-                || x2 > bitmap.getWidth() || y2 > bitmap.getHeight()) {
+        int[] region = CropRegion.map(
+                coordinate[0], coordinate[1], coordinate[2], coordinate[3],
+                width, height, bitmap.getWidth(), bitmap.getHeight());
+        if (region == null) {
             return bitmap;
         }
-        return Bitmap.createBitmap(bitmap, x1, y1, x2 - x1, y2 - y1);
+        return Bitmap.createBitmap(bitmap, region[0], region[1], region[2], region[3]);
     }
 
     /**

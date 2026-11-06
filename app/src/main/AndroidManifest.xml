@@ -68,8 +68,7 @@
             android:name="ai.loko.hk.ui.Accessibility"
             android:enabled="true"
             android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:process=":service">
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>

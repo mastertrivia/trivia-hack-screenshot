@@ -5,7 +5,7 @@
     android:accessibilityFeedbackType="feedbackGeneric|feedbackAllMask"
     android:accessibilityFlags="flagReportViewIds"
     android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
     android:description="@string/accessibility_desc"
     android:notificationTimeout="0"
-    android:packageNames="com.showtimeapp,com.brainbaazi,com.intermedia.hq,qureka.live.game.show,com.portkey.mobshow,com.beamnext.jusplay,om.ushareit.weshow,com.kryptolabs.android.speakerswire, live.trivia.theq, com.prodege.swagiq"
     />

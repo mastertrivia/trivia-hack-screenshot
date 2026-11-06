@@ -31,7 +31,7 @@
     <string name="title_activity_profile">Select Profile</string>
     <string name="title_activity_crop">Crop Image</string>
 
-    <string name="accessibility_desc">Trivia Capture keeps this accessibility service declared so that the accessibility permission indicator on the home screen can work. Trivia Capture does not read the screen content of other apps.\n</string>
+    <string name="accessibility_desc">Trivia Capture uses this accessibility service to take screenshots when you tap the floating button. It does not read the screen content of other apps.\n</string>
 
     <!-- Home screen -->
     <string name="perm_accessibility">ACCESSIBILITY</string>

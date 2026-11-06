@@ -35,8 +35,8 @@ No accounts, no ads, no tracking.
 
 ## How it works
 
-1. Grant the **overlay** permission so the floating button can appear over other apps. Optionally grant **accessibility** from the home-screen pill (can be hidden in Settings).
-2. Press **START SCREENSHOT** and accept Android's screen-capture consent dialog.
+1. Grant the **overlay** permission so the floating button can appear over other apps. On Android 11+, also grant **accessibility** from the home-screen pill so taps do not re-prompt for screen sharing (the pill can be hidden in Settings).
+2. Press **START SCREENSHOT**. If accessibility is on (Android 11+), the floating button appears immediately; otherwise accept Android's screen-capture consent dialog.
 3. A small button appears on screen. Tap it to capture, drag it to reposition.
 4. The screenshot is saved to `Pictures/Trivia Capture` and shows up in your Gallery.
 
@@ -47,9 +47,9 @@ To capture only a region, open **Select Profiles** first, draw the area you want
 | Permission | Why it is needed |
 |---|---|
 | **Overlay** (`SYSTEM_ALERT_WINDOW`) | Draws the floating capture button over other apps. |
-| **Accessibility** | Optional home-screen indicator; the declared service does not read other apps. Hide or show the pill in Settings. |
+| **Accessibility** | On Android 11+ this is how the floating button captures the screen, so Android does not ask to start recording on every tap. The service does not read other apps. Hide or show the home-screen pill in Settings. |
 | **Storage** (read/write) | Saves screenshots to the shared Pictures folder. |
-| **Screen capture** (`MediaProjection`) | Android's standard consent dialog for capturing the screen; granted once per session. |
+| **Screen capture** (`MediaProjection`) | Fallback on Android 10 and below, or when accessibility is off. Android's standard consent dialog; granted once per session. |
 | **Internet** | Used only for crash reporting and the update check. |
 
 ## Install
@@ -77,8 +77,8 @@ The APK is written to `app/build/outputs/apk/debug/`.
 
 ## Tech
 
-- Java, Android SDK (`minSdk 19`, `targetSdk 28`)
-- `MediaProjection` + `VirtualDisplay` for screen capture
+- Java, Android SDK (`minSdk 19`, `compileSdk 30`, `targetSdk 28`)
+- `AccessibilityService.takeScreenshot()` on Android 11+; `MediaProjection` + `VirtualDisplay` as fallback
 - A version-aware MediaStore save path (Android 10+ scoped storage, legacy file + media scan below)
 - Room, AppCompat and a small set of third-party UI libraries
 
