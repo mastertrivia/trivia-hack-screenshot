@@ -486,7 +486,7 @@ public class Floating extends Service {
         // (with its position and size) is added back the moment the frame
         // has been acquired.
         hideIconForCapture();
-        Screenshotter.ScreenshotCallback callback = new Screenshotter.ScreenshotCallback() {
+        final Screenshotter.ScreenshotCallback callback = new Screenshotter.ScreenshotCallback() {
             @Override
             public void onScreenshot(final Bitmap bitmap) {
                 mainHandler.post(new Runnable() {
