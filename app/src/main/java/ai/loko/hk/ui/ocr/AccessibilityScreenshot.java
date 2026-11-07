@@ -20,15 +20,16 @@ import ai.loko.hk.ui.utils.Logger;
 @TargetApi(30)
 public final class AccessibilityScreenshot {
 
+    private static final int MAX_INTERVAL_RETRIES = 2;
+    private static final int INTERVAL_RETRY_DELAY_MS = 350;
+    private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
     private static final Executor MAIN_EXECUTOR = new Executor() {
-        private final Handler handler = new Handler(Looper.getMainLooper());
-
         @Override
         public void execute(Runnable command) {
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 command.run();
             } else {
-                handler.post(command);
+                MAIN_HANDLER.post(command);
             }
         }
     };
@@ -37,7 +38,13 @@ public final class AccessibilityScreenshot {
     }
 
     public static void take(AccessibilityService service,
-                            final Screenshotter.ScreenshotCallback cb) {
+                            Screenshotter.ScreenshotCallback cb) {
+        take(service, cb, 0);
+    }
+
+    private static void take(final AccessibilityService service,
+                             final Screenshotter.ScreenshotCallback cb,
+                             final int attempt) {
         try {
             service.takeScreenshot(Display.DEFAULT_DISPLAY, MAIN_EXECUTOR,
                     new AccessibilityService.TakeScreenshotCallback() {
@@ -48,6 +55,16 @@ public final class AccessibilityScreenshot {
 
                         @Override
                         public void onFailure(int errorCode) {
+                            if (ScreenshotError.shouldRetry(errorCode)
+                                    && attempt < MAX_INTERVAL_RETRIES) {
+                                MAIN_HANDLER.postDelayed(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        take(service, cb, attempt + 1);
+                                    }
+                                }, INTERVAL_RETRY_DELAY_MS);
+                                return;
+                            }
                             cb.onScreenshot(null);
                         }
                     });
